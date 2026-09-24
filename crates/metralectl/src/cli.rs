@@ -236,6 +236,13 @@ pub struct AgentRunArgs {
     #[arg(long, default_value_t = metralectl_agent::DEFAULT_PORT)]
     pub port: u16,
 
+    /// Port the peer channel listens on, and the port this agent advertises.
+    ///
+    /// Lets a second agent run on a box whose default peer port is already
+    /// held; its peers then address it as `host:<port>`.
+    #[arg(long, default_value_t = metralectl_agent::peer::DEFAULT_PEER_PORT)]
+    pub peer_port: u16,
+
     /// Also accept connections from a local development server.
     #[arg(long)]
     pub dev_origins: bool,
