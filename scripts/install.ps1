@@ -77,7 +77,7 @@ while ($i -lt $args.Count) {
     $i++
 }
 
-$Repo    = 'Metrale/metrale-recipes'
+$Repo    = 'Metrale/metralectl'
 $BinName = 'metralectl'
 $Port    = 34333
 

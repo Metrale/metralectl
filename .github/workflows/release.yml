@@ -476,7 +476,7 @@ jobs:
           # fell through to `cargo publish`, which then died on the first crate
           # that already existed, and `verify-published` reported the release
           # had not shipped when in fact it had. That is exactly what v0.2.0 did.
-          ua='metralectl-release (+https://github.com/Metrale/metrale-recipes)'
+          ua='metralectl-release (+https://github.com/Metrale/metralectl)'
           code=$(curl -sS -o /dev/null -w '%{http_code}' -A "$ua" \
                    "https://crates.io/api/v1/crates/metralectl/$version" || echo 000)
           case "$code" in
