@@ -28,7 +28,7 @@ dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://dev.metrale.ai"
-Repository = "https://github.com/Metrale/metrale-recipes"
+Repository = "https://github.com/Metrale/metralectl"
 
 [tool.maturin]
 bindings = "bin"

@@ -15,7 +15,7 @@
 
 set -eu
 
-REPO="Metrale/metrale-recipes"
+REPO="Metrale/metralectl"
 BIN_NAME="metralectl"
 
 info() { printf '\033[1;36m[metrale]\033[0m %s\n' "$1" >&2; }

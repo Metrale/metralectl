@@ -23,7 +23,7 @@ distribution is named `pymetralectl`, and the command it installs is
 **Recipes ship inside the binary.** A fresh install makes no network request to
 resolve a recipe, and there is no "trusted registry" mechanism — a remote
 registry can supply recipe data but can never cause a command to run. See
-[SECURITY.md](https://github.com/Metrale/metrale-recipes/blob/main/SECURITY.md)
+[SECURITY.md](https://github.com/Metrale/metralectl/blob/main/SECURITY.md)
 for why that matters and what it replaces.
 
 Requires Docker to launch anything; `list`, `show`, and `run --print` work
