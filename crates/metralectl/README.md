@@ -8,17 +8,15 @@ and the serve settings it was validated under. `metralectl` reads a recipe and
 runs the `docker run` it implies.
 
 ```sh
-uvx pymetralectl list                              # what is available
-uvx pymetralectl show qwen3.6-35b-a3b-fp8-mtp      # what a recipe does
-uvx pymetralectl run qwen3.6-35b-a3b-fp8-mtp       # serve it
-uvx pymetralectl run <recipe> --print              # print the command instead
+uvx metralectl list                              # what is available
+uvx metralectl show qwen3.6-35b-a3b-fp8-mtp      # what a recipe does
+uvx metralectl run qwen3.6-35b-a3b-fp8-mtp       # serve it
+uvx metralectl run <recipe> --print              # print the command instead
 ```
 
-`uv tool install pymetralectl` puts `metralectl` on your PATH under its real name.
+`uv tool install metralectl` puts `metralectl` on your PATH.
 
-This wheel contains a self-contained Rust binary and no Python code; the
-distribution is named `pymetralectl`, and the command it installs is
-`metralectl`.
+This wheel contains a self-contained Rust binary and no Python code.
 
 **Recipes ship inside the binary.** A fresh install makes no network request to
 resolve a recipe, and there is no "trusted registry" mechanism — a remote

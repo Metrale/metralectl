@@ -47,7 +47,7 @@ release PR showing a dozen is genuinely running.
 |---|---|---|
 | GitHub Release (tarballs, checksums, `install.sh`) | `github-release` | the run's own `GITHUB_TOKEN` |
 | crates.io | `publish-crates` | Trusted Publishing (OIDC), environment `crates-io` |
-| PyPI (`pymetralectl`) | `publish-pypi` | Trusted Publishing (OIDC), environment `pypi` |
+| PyPI (`metralectl`) | `publish-pypi` | Trusted Publishing (OIDC), environment `pypi` |
 
 No long-lived registry token is used. Each publish job mints a short-lived one
 from its own OIDC identity, and both environments are restricted to `main` and
@@ -58,9 +58,10 @@ Both publish steps are idempotent — crates check the index first, PyPI uses
 
 ## The distribution names
 
-The crate and the binary are both `metralectl`. The **PyPI distribution is
-`pymetralectl`**, a `py`-prefixed name kept distinct from the crate. The wheel's console script keeps the real name, so
-`uv tool install pymetralectl` still puts `metralectl` on your PATH.
+The crate, the binary and the PyPI distribution are all `metralectl`. Because
+the distribution and its console script share that name, `uvx metralectl`
+finds the executable without `--from`, and `uv tool install metralectl` puts
+`metralectl` on your PATH.
 
 ## Recipes are part of the binary
 
@@ -126,7 +127,7 @@ compare against.
 
 ```sh
 cargo install metralectl --locked      # from crates.io
-uvx pymetralectl list                  # from PyPI, no install step
+uvx metralectl list                  # from PyPI, no install step
 curl -fsSL https://dev.metrale.ai/install.sh | sh
 ```
 

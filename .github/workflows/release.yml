@@ -522,7 +522,7 @@ jobs:
       # A statically-linked musl binary satisfies the manylinux policy trivially,
       # so each Linux target is emitted twice from one build: manylinux for glibc
       # hosts and musllinux for Alpine. The binary is identical; only the tag
-      # differs, which is what makes `uvx pymetralectl` resolve on both.
+      # differs, which is what makes `uvx metralectl` resolve on both.
       # Built ONCE, in the musllinux container, because that is the only one
       # of the two that has a musl cross-compiler. Building the same musl
       # target again under manylinux_2_17 — which is glibc-based — failed in
