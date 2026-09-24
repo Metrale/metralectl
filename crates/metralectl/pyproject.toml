@@ -1,18 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# Packages the Rust binary as a Python wheel so `uvx pymetralectl` works with no
+# Packages the Rust binary as a Python wheel so `uvx metralectl` works with no
 # install step. There is no Python code here: maturin's `bin` bindings put the
 # compiled executable straight into the wheel's scripts directory.
 #
-# The distribution is named `pymetralectl` (a `py`-prefixed wheel name kept
-# distinct from the crate). The console script keeps the real name, so
-# `uv tool install pymetralectl` still gives you `metralectl` on PATH.
+# The distribution and the console script share the crate's name, which is what
+# lets `uvx metralectl` find the executable without `--from`.
 [build-system]
 requires = ["maturin>=1.7,<2"]
 build-backend = "maturin"
 
 [project]
-name = "pymetralectl"
+name = "metralectl"
 description = "Launch Metrale Engine inference recipes on NVIDIA DGX Spark and other local accelerators."
 readme = "README.md"
 license = "AGPL-3.0-only"
