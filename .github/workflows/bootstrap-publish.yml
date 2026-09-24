@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 name: Bootstrap crates.io publish
 
-# SUPERSEDED — kept as a recovery path, not a normal one.
+# FIRST PUBLISH ONLY, then a recovery path — not a normal one.
 #
-# This existed because crates.io has no pending-publisher mechanism: a crate
+# This exists because crates.io has no pending-publisher mechanism: a crate
 # must already exist before a Trusted Publisher can be attached to it, so the
-# very first publish could not use OIDC and had to present a token. That has
-# happened; all five crates were published at 0.1.0 on 2026-08-25 and their
-# Trusted Publishers are configured.
+# very first publish cannot use OIDC and has to present a token. Run it once
+# for the first 0.1.0 of all five crates, then attach each crate's Trusted
+# Publisher (workflow release.yml, environment crates-io).
 #
 # Normal releases now go through release.yml, which mints a short-lived token
 # from its own OIDC identity and stores nothing. This file only matters if that
