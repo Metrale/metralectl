@@ -430,7 +430,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
             identity: Arc::clone(&identity),
             pins,
             events: events.clone(),
-            peer_port: metralectl_agent::peer::DEFAULT_PEER_PORT,
+            peer_port: args.peer_port,
             rank: Arc::clone(&renderer),
             joining: Arc::clone(&joining),
             accelerator: accelerator.clone(),
@@ -446,7 +446,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
             metralectl_agent::discovery::Beacon {
                 id: fleet.id(),
                 name: metralectl_agent::discovery::local_display_name(),
-                peer_port: metralectl_agent::peer::DEFAULT_PEER_PORT,
+                peer_port: args.peer_port,
                 addresses: beacon_addrs,
                 can_launch: can_launch.is_ok(),
                 accelerator: accelerator.clone(),
