@@ -1,0 +1,60 @@
+# HELP metrale_generation_tokens_total Total tokens generated
+# TYPE metrale_generation_tokens_total counter
+metrale_generation_tokens_total 120
+# HELP metrale_http_bytes_in_total Total HTTP request body bytes
+# TYPE metrale_http_bytes_in_total counter
+metrale_http_bytes_in_total 114
+# HELP metrale_http_bytes_out_total Total HTTP response body bytes
+# TYPE metrale_http_bytes_out_total counter
+metrale_http_bytes_out_total 3772
+# HELP metrale_prompt_tokens_total Total prompt tokens processed
+# TYPE metrale_prompt_tokens_total counter
+metrale_prompt_tokens_total 19
+# HELP metrale_requests_active Currently active requests
+# TYPE metrale_requests_active gauge
+metrale_requests_active 0
+# HELP metrale_requests_total Total requests processed
+# TYPE metrale_requests_total counter
+metrale_requests_total 1
+# HELP metrale_spec_decode_verify_total MTP draft verify outcomes by K and result
+# TYPE metrale_spec_decode_verify_total counter
+metrale_spec_decode_verify_total{k="2",outcome="accept"} 5
+# HELP metrale_time_to_first_token_seconds Time to first token
+# TYPE metrale_time_to_first_token_seconds histogram
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="0.05"} 0
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="0.1"} 0
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="0.25"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="0.5"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="1"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="2.5"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="5"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="10"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="30"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="60"} 1
+metrale_time_to_first_token_seconds_bucket{model="Qwen/Qwen3.6-35B-A3B-FP8",le="+Inf"} 1
+metrale_time_to_first_token_seconds_sum{model="Qwen/Qwen3.6-35B-A3B-FP8"} 0.150161316
+metrale_time_to_first_token_seconds_count{model="Qwen/Qwen3.6-35B-A3B-FP8"} 1
+# HELP metrale_prefix_cache_hits_total Prefix cache lookups that found cached blocks
+# TYPE metrale_prefix_cache_hits_total counter
+metrale_prefix_cache_hits_total 0
+# HELP metrale_prefix_cache_misses_total Prefix cache lookups with no match
+# TYPE metrale_prefix_cache_misses_total counter
+metrale_prefix_cache_misses_total 1
+# HELP metrale_prefix_cache_hit_tokens_total Tokens reused from prefix cache
+# TYPE metrale_prefix_cache_hit_tokens_total counter
+metrale_prefix_cache_hit_tokens_total 0
+# HELP metrale_prefix_cache_hit_rate Prefix cache hit rate (0-1)
+# TYPE metrale_prefix_cache_hit_rate gauge
+metrale_prefix_cache_hit_rate 0.0000
+# HELP metrale_kernel_lookups_unresolved Kernel lookups that did not resolve for the live model
+# TYPE metrale_kernel_lookups_unresolved gauge
+metrale_kernel_lookups_unresolved 0
+# HELP metrale_token_entropy_last Most recent per-token entropy (nats)
+# TYPE metrale_token_entropy_last gauge
+metrale_token_entropy_last 0.0000
+# HELP metrale_low_entropy_tokens_total Tokens with entropy below 0.3
+# TYPE metrale_low_entropy_tokens_total counter
+metrale_low_entropy_tokens_total 103
+# HELP metrale_low_entropy_ratio Fraction of tokens with entropy below 0.3
+# TYPE metrale_low_entropy_ratio gauge
+metrale_low_entropy_ratio 0.8512

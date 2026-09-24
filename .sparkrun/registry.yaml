@@ -1,0 +1,4 @@
+registries:
+  - name: metrale
+    description: Official Metrale Engine recipes — the curated lineup from the metrale/metrale-inference-gb10 catalogue (Qwen3.5/3-Next/Coder-Next, Gemma-4, Nemotron-3, Mistral-Small-4, MiniMax-M2.7, Qwen3-VL). Maintained by Metrale Corp.
+    recipes: recipes

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "rust",
+  "packages": {
+    ".": {
+      "package-name": "metrale-recipes-data",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        "Cargo.toml"
+      ]
+    },
+    "crates/metralectl-protocol": {},
+    "crates/metralectl-core": {},
+    "crates/metralectl-agent": {},
+    "crates/metralectl": {}
+  },
+  "plugins": [
+    "cargo-workspace",
+    {
+      "type": "linked-versions",
+      "groupName": "metralectl",
+      "components": [
+        "metrale-recipes-data",
+        "metralectl-protocol",
+        "metralectl-core",
+        "metralectl-agent",
+        "metralectl"
+      ]
+    }
+  ],
+  "separate-pull-requests": false,
+  "include-component-in-tag": false
+}
