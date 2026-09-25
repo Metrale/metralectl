@@ -26,7 +26,7 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://dev.metrale.ai"
+Homepage = "https://metrale.ai/engine"
 Repository = "https://github.com/Metrale/metralectl"
 
 [tool.maturin]

@@ -82,7 +82,7 @@ async fn the_listener_binds_loopback_only() {
 #[tokio::test]
 async fn the_real_site_completes_the_upgrade() {
     let addr = spawn().await;
-    let resp = handshake(addr, Some("https://dev.metrale.ai"), None).await;
+    let resp = handshake(addr, Some("https://metrale.ai"), None).await;
     assert!(
         resp.starts_with("HTTP/1.1 101"),
         "expected an upgrade, got: {resp}"
@@ -95,7 +95,8 @@ async fn a_hostile_origin_is_refused_before_any_websocket_exists() {
     for evil in [
         "https://evil.com",
         "https://dev.metrale.ai.evil.com",
-        "http://dev.metrale.ai",
+        "http://metrale.ai",
+        "https://dev.metrale.ai",
         "null",
     ] {
         let resp = handshake(addr, Some(evil), None).await;
@@ -119,12 +120,7 @@ async fn a_rebound_host_header_is_refused_even_with_a_valid_origin() {
     // The DNS-rebinding case: the attacker's name now resolves to 127.0.0.1,
     // but the browser still sends the attacker's Host.
     let addr = spawn().await;
-    let resp = handshake(
-        addr,
-        Some("https://dev.metrale.ai"),
-        Some("attacker.com:1234"),
-    )
-    .await;
+    let resp = handshake(addr, Some("https://metrale.ai"), Some("attacker.com:1234")).await;
     assert!(resp.starts_with("HTTP/1.1 403"), "got: {resp}");
 }
 

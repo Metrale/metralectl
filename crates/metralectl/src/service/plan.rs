@@ -210,7 +210,7 @@ fn systemd(agent: &AgentInvocation, home: &Path) -> ServicePlan {
          # under {SERVICE_NAME}.service.d/ instead.\n\
          [Unit]\n\
          Description=Metrale Engine agent — the local control plane the website talks to\n\
-         Documentation=https://dev.metrale.ai/control.html\n\
+         Documentation=https://metrale.ai/control\n\
          After=network-online.target\n\
          Wants=network-online.target\n\
          \n\

@@ -2,7 +2,7 @@
 #
 # metralectl installer for Windows.
 #
-#   irm https://dev.metrale.ai/install.ps1 | iex
+#   irm https://metrale.ai/install.ps1 | iex
 #
 # The counterpart of scripts/install.sh, and deliberately the same SHAPE: same
 # resolution of "latest", same refusal to install a binary whose checksum is
@@ -17,7 +17,7 @@
 # To join a fleet at install time — the Windows counterpart of
 # `curl … | sh -s -- --join <code>@<host>`:
 #
-#   & ([scriptblock]::Create((irm https://dev.metrale.ai/install.ps1))) -Join 12345678@10.0.0.1
+#   & ([scriptblock]::Create((irm https://metrale.ai/install.ps1))) -Join 12345678@10.0.0.1
 #
 # `irm | iex` cannot pass arguments; `[scriptblock]::Create` can, and is the
 # idiom every Windows installer that takes options uses.
