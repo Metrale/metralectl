@@ -3,5 +3,5 @@
   "crates/metralectl": "0.1.1",
   "crates/metralectl-agent": "0.1.1",
   "crates/metralectl-core": "0.1.1",
-  "crates/metralectl-protocol": "0.1.0"
+  "crates/metralectl-protocol": "0.1.1"
 }
