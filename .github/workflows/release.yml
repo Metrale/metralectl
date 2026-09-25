@@ -94,7 +94,7 @@ jobs:
       # but the archives are uploaded ~30 minutes later, by `github-release` at
       # the very end of this run. In between, `releases/latest` resolves to a
       # release with zero assets and every
-      # `curl https://dev.metrale.ai/install.sh | sh` on earth dies on a 404
+      # `curl https://metrale.ai/install.sh | sh` on earth dies on a 404
       # for the tarball it just tried to fetch. Not theoretical: v0.5.0 did
       # exactly that to real installs.
       #

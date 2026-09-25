@@ -128,7 +128,7 @@ compare against.
 ```sh
 cargo install metralectl --locked      # from crates.io
 uvx metralectl list                  # from PyPI, no install step
-curl -fsSL https://dev.metrale.ai/install.sh | sh
+curl -fsSL https://metrale.ai/install.sh | sh
 ```
 
 The installer verifies SHA-256 against the release, and verifies Sigstore build

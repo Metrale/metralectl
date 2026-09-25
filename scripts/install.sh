@@ -1,9 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# Metrale Engine launcher installer — https://dev.metrale.ai/install.sh
+# Metrale Engine launcher installer — https://metrale.ai/install.sh
 #
-#   curl -fsSL https://dev.metrale.ai/install.sh | sh
+#   curl -fsSL https://metrale.ai/install.sh | sh
 #
 # Everything is wrapped in main() and called on the last line, so a download
 # that is cut off part-way executes nothing at all rather than half of an
@@ -40,7 +40,7 @@ detect_target() {
         # written and would now send someone away from a working install.
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
             die "this is the unix installer. On Windows, run in PowerShell:
-    irm https://dev.metrale.ai/install.ps1 | iex"
+    irm https://metrale.ai/install.ps1 | iex"
             ;;
         *)
             die "unsupported operating system: $os. metralectl supports Linux, macOS and Windows."

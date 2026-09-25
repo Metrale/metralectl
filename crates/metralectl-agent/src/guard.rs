@@ -13,7 +13,7 @@
 //! testable without a socket.
 
 /// Origins allowed to drive this agent.
-pub const ALLOWED_ORIGINS: &[&str] = &["https://dev.metrale.ai", "https://metrale.ai"];
+pub const ALLOWED_ORIGINS: &[&str] = &["https://metrale.ai"];
 
 /// Additional origins for local development, enabled explicitly.
 pub const DEV_ORIGINS: &[&str] = &[
@@ -61,8 +61,8 @@ pub enum Refusal {
 /// Decide whether a connection may upgrade.
 ///
 /// Matching is exact string equality. Prefix or substring matching would accept
-/// `https://dev.metrale.ai.evil.com`, and a scheme-insensitive match would
-/// accept plain `http://dev.metrale.ai`; neither is our origin.
+/// `https://metrale.ai.evil.com`, and a scheme-insensitive match would
+/// accept plain `http://metrale.ai`; neither is our origin.
 pub fn check(
     origin: Option<&str>,
     host: Option<&str>,
@@ -106,9 +106,18 @@ mod tests {
     }
 
     #[test]
-    fn the_real_sites_are_allowed() {
-        assert!(ok("https://dev.metrale.ai").is_ok());
+    fn the_real_site_is_allowed() {
         assert!(ok("https://metrale.ai").is_ok());
+    }
+
+    #[test]
+    fn a_retired_origin_is_refused() {
+        // dev.metrale.ai now only redirects to metrale.ai, so no page there
+        // should be driving this agent.
+        assert_eq!(
+            ok("https://dev.metrale.ai"),
+            Err(Refusal::ForeignOrigin("https://dev.metrale.ai".into()))
+        );
     }
 
     #[test]
@@ -130,11 +139,11 @@ mod tests {
     #[test]
     fn the_scheme_and_port_must_match_exactly() {
         assert!(
-            ok("http://dev.metrale.ai").is_err(),
+            ok("http://metrale.ai").is_err(),
             "plain http is not our origin"
         );
         assert!(
-            ok("https://dev.metrale.ai:8443").is_err(),
+            ok("https://metrale.ai:8443").is_err(),
             "a different port is a different origin"
         );
     }
@@ -154,7 +163,7 @@ mod tests {
         // The attacker's page keeps its own Origin *and* its own Host, so this
         // fails twice over; assert the Host check specifically.
         let r = check(
-            Some("https://dev.metrale.ai"),
+            Some("https://metrale.ai"),
             Some("attacker.com:34333"),
             PORT,
             false,
@@ -166,7 +175,7 @@ mod tests {
     fn every_loopback_spelling_of_host_is_accepted() {
         for h in ["127.0.0.1:34333", "localhost:34333", "[::1]:34333"] {
             assert!(
-                check(Some("https://dev.metrale.ai"), Some(h), PORT, false).is_ok(),
+                check(Some("https://metrale.ai"), Some(h), PORT, false).is_ok(),
                 "{h} should be accepted"
             );
         }
@@ -176,7 +185,7 @@ mod tests {
     fn a_host_on_the_wrong_port_is_refused() {
         assert!(
             check(
-                Some("https://dev.metrale.ai"),
+                Some("https://metrale.ai"),
                 Some("127.0.0.1:1234"),
                 PORT,
                 false
@@ -197,7 +206,7 @@ mod tests {
     #[test]
     fn a_missing_host_is_refused() {
         assert_eq!(
-            check(Some("https://dev.metrale.ai"), None, PORT, false),
+            check(Some("https://metrale.ai"), None, PORT, false),
             Err(Refusal::MissingHost)
         );
     }
