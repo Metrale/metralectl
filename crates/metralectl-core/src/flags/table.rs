@@ -3,8 +3,8 @@
 //! The `met serve` flag table.
 //!
 //! The first 48 entries came from the reference implementation's flag map and
-//! boolean-flag list (sparkrun's runtime definition), in that exact declaration
-//! order, because emission order is part of the output contract: the website
+//! boolean-flag list, in that exact declaration order, because emission order
+//! is part of the output contract: the website
 //! prints the same command string this table renders, and the golden corpus
 //! asserts it byte-for-byte. Later entries are appended rather than sorted in,
 //! for the same reason.

@@ -9,7 +9,7 @@ use metralectl_protocol::msg::bench::Sha;
 use metralectl_protocol::msg::bench_node::{BenchNodeInfo, BuiltSha, GpuInfo, RepoInfo};
 
 /// The signing identity Metrale Engine would use: fingerprint = first 16 hex of
-/// SHA-256(public key), the same rule `metrale-plugin`'s `signing.rs` applies.
+/// SHA-256(public key), the same rule the engine's `crates/bench/src/gate/signing.rs` applies.
 fn signer(metrale_home: &std::path::Path) -> (Option<String>, Option<String>) {
     let pk8 = metrale_home.join("identity").join("ed25519.pk8");
     let Ok(bytes) = std::fs::read(&pk8) else {

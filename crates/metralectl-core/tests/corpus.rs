@@ -7,6 +7,7 @@
 
 use metralectl_core::flags;
 use metralectl_core::recipe::{NotLaunchable, Provenance, Recipe, RuntimeKind};
+use std::collections::BTreeSet;
 
 fn load_all() -> Vec<(String, Result<Recipe, metralectl_core::RecipeError>)> {
     metrale_recipes_data::all()
@@ -143,4 +144,61 @@ fn report_recipe_settings_the_flag_table_does_not_claim() {
         }
         eprintln!();
     }
+}
+
+/// Every `METRALE_*` name a shipped recipe mentions, in its `env:` block or its
+/// prose, is a lever the engine declares.
+///
+/// `met serve` refuses to start with an undeclared `METRALE_*` variable in its
+/// environment, so a recipe that tells an operator to export one describes a
+/// launch that cannot happen. The declared set is the lever table in the
+/// vendored snapshot, which `met dump-serve-options` writes.
+#[test]
+fn every_lever_a_recipe_names_is_one_the_engine_declares() {
+    let snapshot: serde_json::Value =
+        serde_json::from_str(include_str!("../../../vendor/serve-options.v2.json"))
+            .expect("the vendored snapshot is JSON");
+    let declared: BTreeSet<&str> = snapshot["levers"]
+        .as_array()
+        .expect("the snapshot carries a lever table")
+        .iter()
+        .map(|l| l["env"].as_str().expect("every lever has a name"))
+        .collect();
+    assert!(
+        declared.contains("METRALE_HOME"),
+        "the lever table is not the one this test was written against"
+    );
+    let mut undeclared = Vec::new();
+    for e in metrale_recipes_data::all() {
+        for name in lever_names(e.yaml) {
+            if !declared.contains(name) {
+                undeclared.push(format!("  {}: {name}", e.name));
+            }
+        }
+    }
+    assert!(
+        undeclared.is_empty(),
+        "recipes name METRALE_* variables the engine does not declare:\n{}",
+        undeclared.join("\n")
+    );
+}
+
+/// The `METRALE_[A-Z0-9_]+` words in `text`.
+fn lever_names(text: &str) -> Vec<&str> {
+    const PREFIX: &str = "METRALE_";
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut out = Vec::new();
+    for (at, _) in text.match_indices(PREFIX) {
+        if text[..at].chars().next_back().is_some_and(word) {
+            continue;
+        }
+        let rest = &text[at + PREFIX.len()..];
+        let len = rest
+            .find(|c: char| !(c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_'))
+            .unwrap_or(rest.len());
+        if len > 0 {
+            out.push(&text[at..at + PREFIX.len() + len]);
+        }
+    }
+    out
 }

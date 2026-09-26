@@ -17,21 +17,17 @@ metadata:
 
     REQUIRES a build carrying the 27B prefill-record stack
     (attn transposed-NVFP4 routing,
-    METRALE_FFN_NVFP4_MMQ, FlashInfer-GDN AOT bridge, tail SSM
+    FFN NVFP4 MMQ, FlashInfer-GDN AOT bridge, tail SSM
     checkpoints). Not yet in a tagged container release — until then,
     build the branch with METRALE_TARGET_MODEL=qwen3.6-27b
     METRALE_TARGET_QUANT=nvfp4.
 
-    Env stack (the record configuration; each flag is opt-in and
-    independently coherence-gated 10/10):
-      METRALE_FFN_NVFP4_MMQ=1     # vendored llama Blackwell FP4 block-scale
-                                # MMQ for FFN gate/up (80 TFLOP/s vs 51)
-      METRALE_GDN_REGRESIDENT=1   # register-resident GDN warm replay
-      METRALE_GDN_FLASHINFER=1    # FlashInfer GDN chunked prefill (+17-20%)
-      METRALE_GDN_LIB=<repo>/3rdparty_patches/gdn_aot/libmetralegdn.so
-      CUTE_DSL_ARCH=sm_121a
-      LD_LIBRARY_PATH must include the cute-dsl runtime
-      (nvidia_cutlass_dsl/lib) and the CUDA libs.
+    Env stack: export no METRALE_* variable for this recipe. The engine
+    runs the FFN NVFP4 MMQ (FP4 block-scale MMQ for FFN gate/up) and the
+    register-resident GDN warm replay by default (kill-switches
+    METRALE_NO_FFN_NVFP4_MMQ and METRALE_NO_GDN_REGRESIDENT), and it
+    declares no lever for the FlashInfer-GDN bridge. `met serve` refuses
+    to start with an undeclared METRALE_* name in its environment.
 
     Checkpoint-interval note: with the tail-SSM-checkpoint fix, prefill
     chunks stay full-size at EVERY interval (the old interval=16
