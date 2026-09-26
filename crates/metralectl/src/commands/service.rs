@@ -36,6 +36,9 @@ pub fn install(args: &crate::cli::AgentInstallArgs) -> Result<()> {
         // the node's identity rather than its port.
         config_dir: std::env::var_os(crate::configdir::DIR_ENV).map(std::path::PathBuf::from),
         log_file: None,
+        bench_node: crate::hostinfo::config_dir()?
+            .join(metralectl_agent::bench::config::FILE)
+            .is_file(),
     };
     let done = crate::service::install(
         &metralectl_core::io::StdFileSystem,

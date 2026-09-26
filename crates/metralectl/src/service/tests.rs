@@ -111,6 +111,7 @@ pub(super) fn agent() -> AgentInvocation {
         browser: true,
         config_dir: None,
         log_file: None,
+        bench_node: false,
     }
 }
 
