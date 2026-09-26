@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Arguments for `recipe`, `list`, `show`, `search` and `registry`.
 

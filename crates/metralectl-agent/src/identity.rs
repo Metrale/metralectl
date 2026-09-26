@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! This agent's cryptographic identity, and the peers it has decided to trust.
 //!

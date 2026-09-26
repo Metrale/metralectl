@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Installing the agent so it is there after a reboot.
 //!
@@ -197,6 +197,7 @@ fn teardown_plan(kind: ServiceKind, home: &std::path::Path, uid: u32) -> Service
             browser: true,
             config_dir: None,
             log_file: None,
+            bench_node: false,
         },
         home,
         uid,

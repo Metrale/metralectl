@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The vocabulary for a fleet: nodes, the links between them, and what each
 //! node is willing to say about itself.

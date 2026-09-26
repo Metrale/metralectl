@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 name: CI
 
 on:
@@ -78,7 +78,7 @@ jobs:
         run: |
           missing=$(git ls-files '*.rs' '*.sh' '*.yml' '*.py' \
             | while read -r f; do
-                head -3 "$f" | grep -q 'SPDX-License-Identifier: AGPL-3.0-only' || echo "$f"
+                head -3 "$f" | grep -q 'SPDX-License-Identifier: MIT OR Apache-2.0' || echo "$f"
               done)
           if [ -n "$missing" ]; then
             echo "missing SPDX header:"; echo "$missing"; exit 1

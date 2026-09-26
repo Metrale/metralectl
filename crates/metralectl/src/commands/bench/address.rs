@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Turning `--with-nodes 10.10.10.2,dgx3.local:34334` into sockets.
 //!

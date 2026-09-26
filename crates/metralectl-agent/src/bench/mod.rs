@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Benchmark jobs: a `bench`-granted peer asks this node to build the
 //! configured Metrale Engine checkout at a commit, run one certification gate, and

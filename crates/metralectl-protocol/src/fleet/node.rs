@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What a node reports about itself: what it can do, how far it is trusted,
 //! how it is, and what is wrong with it.

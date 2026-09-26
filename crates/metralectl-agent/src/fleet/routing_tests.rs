@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Tests for control routing: where a request would go, and — the part the
 //! trust model rides on — where it must never go.

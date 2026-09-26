@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Parser tests for [`super`], split out for headroom: the file sat at 493 of a
 //! 500-line cap, and a cap crossed by accumulation fails on whichever pull

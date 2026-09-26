@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Reading a served model's own `/metrics`, and deriving the numbers an
 //! operator actually watches.

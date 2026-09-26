@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What installing the agent as a background service consists of.
 //!
@@ -98,6 +98,11 @@ pub struct AgentInvocation {
     /// the binary that wrote it, and an agent whose log moved without its unit
     /// knowing writes where nobody is looking.
     pub log_file: Option<PathBuf>,
+    /// Whether this machine is a bench node (`bench.yaml` in its config dir).
+    ///
+    /// A bench job's `cargo build` and the gate's engine run as the agent's
+    /// children, in its cgroup, so a bench node's unit carries no memory cap.
+    pub bench_node: bool,
 }
 
 impl AgentInvocation {
@@ -204,6 +209,12 @@ fn systemd(agent: &AgentInvocation, home: &Path) -> ServicePlan {
     // MemoryMax, not MemoryHigh: this is a forever-process with docker access,
     // and a hard ceiling that kills it is easier to notice than a soft one that
     // silently throttles it into looking hung.
+    let memory = if agent.bench_node {
+        "# No MemoryMax: bench.yaml was present at install, and a bench job's\n\
+         # build and engine run in this unit's cgroup as the agent's children.\n"
+    } else {
+        "MemoryMax=256M\n"
+    };
     let unit_body = format!(
         "# Written by `metralectl agent install`. Edits here are NOT kept:\n\
          # reinstalling overwrites this file. Put local changes in a drop-in\n\
@@ -219,7 +230,7 @@ fn systemd(agent: &AgentInvocation, home: &Path) -> ServicePlan {
          ExecStart={exec}\n\
          Restart=on-failure\n\
          RestartSec=5\n\
-         MemoryMax=256M\n\
+         {memory}\
          # The agent re-adopts containers it already started, so a restart does\n\
          # not orphan a running model.\n\
          KillMode=mixed\n\

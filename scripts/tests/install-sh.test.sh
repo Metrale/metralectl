@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Every `.` in this file sources $WORK/lib.sh, generated at run time from
 # install.sh below — there is no path shellcheck could follow. A file-level
 # directive has to precede all code, which is why it sits up here rather than
@@ -443,6 +443,23 @@ esac
 out=$(agent_fail no)
 contains "no held port: offers the foreground command" "$out" "agent run"
 contains "and names the platform's real log"          "$out" "journalctl"
+
+# --- finish_advice: the closing lines ----------------------------------------
+# With no user systemd bus (a container, CI) the service install fails while the
+# CLI works. The closing lines must say the install is usable and the agent is
+# optional, not that the machine is unusable until the agent is fixed. A failed
+# `--join` is the exception: it is what the operator came for.
+fin() { ( . "$WORK/lib.sh"; finish_advice "$1" "$2" /opt/bin/metralectl ) 2>&1; }
+
+out=$(fin 0 "")
+contains "no agent: the CLI is reported usable"      "$out" "installed and ready to use"
+contains "no agent: says how to set the agent up later" "$out" "/opt/bin/metralectl agent install"
+case "$out" in
+    *"Fix that first"*|*"cannot use this machine"*) bad "no agent: not reported as a broken install" "$out" ;;
+    *) ok "no agent: not reported as a broken install" ;;
+esac
+contains "a failed join is still reported as a failure" "$(fin 0 '12345678@10.0.0.1')" "did not complete"
+contains "a working agent ends with done"             "$(fin 1 "")" "done. Try:"
 
 # --- binary_differs: the upgrade decision ------------------------------------
 # The bug this encodes, reported from a real machine: the agent spoke wire

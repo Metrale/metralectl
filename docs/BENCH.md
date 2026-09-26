@@ -47,6 +47,13 @@ Absent → the bench surface is off and says so; present but invalid →
 `agent run` exits 1 naming the key. On Windows the surface is always off:
 the runner needs process groups and `/proc`.
 
+Write `bench.yaml` **before** `metralectl agent install`, or re-run the
+install after writing it. The systemd unit caps an ordinary agent at
+`MemoryMax=256M`, and a bench job's `cargo build` and the gate's `met` run as
+the agent's children, in that cgroup. When the install finds `bench.yaml` it
+writes the unit without the cap; a unit installed before the file existed
+keeps it.
+
 ```yaml
 metrale_repo: /workspace/metrale          # a git checkout; must have `allowed_remote`
 metrale_home: /workspace/.metrale         # METRALE_HOME for the child: signer + run history

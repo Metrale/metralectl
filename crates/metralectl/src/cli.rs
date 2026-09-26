@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Command-line surface.
 
@@ -61,7 +61,7 @@ pub enum Command {
     #[command(subcommand)]
     Peer(PeerCmd),
 
-    /// Check this machine for problems, including a compromised sparkrun install.
+    /// Check this machine for problems, including a recipe-registry redirect to an untrusted source.
     Doctor,
 
     /// Run a certification gate on a paired node and bring the records back.

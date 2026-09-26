@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Tests for the control-frame client: the version gate, the reply reader,
 //! and the budget ordering the two legs of a forward depend on.

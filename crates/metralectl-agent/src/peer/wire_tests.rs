@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Tests for the peer frames themselves: what still decodes across builds,
 //! what can never decode at all, and what fits on the wire.

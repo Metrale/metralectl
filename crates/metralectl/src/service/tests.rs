@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The orderings and the quoting, which are what actually break.
 //!
@@ -111,6 +111,7 @@ pub(super) fn agent() -> AgentInvocation {
         browser: true,
         config_dir: None,
         log_file: None,
+        bench_node: false,
     }
 }
 

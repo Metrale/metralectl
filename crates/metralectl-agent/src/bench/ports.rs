@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What a job's life needs from the machine it runs on, as a trait, and the
 //! values that cross it. [`machine`](super::machine) is the procedure over
