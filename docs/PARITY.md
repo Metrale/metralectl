@@ -5,10 +5,10 @@ rewrite is not a loud failure — it is a *plausible* command that quietly
 differs from the one every published benchmark was measured under. This
 document records what was checked, what matches, and what deliberately does not.
 
-## Serve commands: 28/28 byte-identical
+## Serve commands: 28/28 byte-identical when measured
 
-Every launchable recipe in this repository was rendered by both implementations
-and compared byte-for-byte:
+Every launchable recipe the corpus then held was rendered by both
+implementations and compared byte-for-byte:
 
 - **metralectl**: `translate()` under a fixed host snapshot, as frozen in
   `crates/metralectl-core/tests/golden/`.
@@ -22,11 +22,17 @@ base command without per-rank coordination flags.
 sparkrun names the engine binary differently from `met`, so the two agree on
 every byte after the binary name.
 
-To reproduce:
+That comparison cannot be re-run on the current corpus. Its 30 launchable
+recipes declare `runtime: metrale`, which sparkrun 0.3.6 has no runtime for,
+and they use serve flags its tables do not know (`--scheduler`,
+`--tool-grammar`, the bare boolean flags). The reference now is the engine's
+own serve CLI: `vendor/serve-options.v2.json` is reflected out of it,
+`flags::coverage` fails the build when the flag table and that snapshot
+disagree, and `crates/metralectl-core/tests/golden/` freezes the argv
+metralectl renders for every launchable recipe.
 
 ```sh
-cargo test -p metralectl-core --test golden      # our side
-sparkrun run recipes/<family>/<recipe>.yaml --hosts localhost --dry-run
+cargo test -p metralectl-core --test golden
 ```
 
 ## Deliberate divergences
@@ -75,8 +81,8 @@ settings do not reach `met serve`. sparkrun drops them in silence; metralectl
 reports every one.
 
 This was not hypothetical. Nine settings in this repository were affected,
-including `lm_head_dtype`, which appears in four recipes and is described in one
-of them as a correctness pin. None had ever reached the engine.
+including `lm_head_dtype`, which five recipes now set and one describes
+as a correctness pin. None had ever reached the engine.
 
 All nine are now claimed, and the reconciliation that made that safe is
 `vendor/serve-options.v2.json` — the engine's own clap definition, reflected out
@@ -96,7 +102,7 @@ deadline), and `max_batch_size` was `1..=64` while a shipping recipe sets `128`.
 Both would have shown up as the web form rejecting a value from the recipe it
 was displaying.
 
-50 engine flags remain unclaimed, each with a recorded reason — multi-node
+48 engine flags remain unclaimed, each with a recorded reason — multi-node
 bootstrap values metralectl derives itself, host paths, outbound-fetch switches,
 diagnostic modes that do not serve, and flags no recipe has asked for.
 

@@ -44,18 +44,19 @@ nodes are "the same box" for a speed-class gate is decided by the submitter
 
 In the agent's config directory (`~/.config/metralectl/` or `--config-dir`).
 Absent → the bench surface is off and says so; present but invalid →
-`agent run` exits 1 naming the key.
+`agent run` exits 1 naming the key. On Windows the surface is always off:
+the runner needs process groups and `/proc`.
 
 ```yaml
 metrale_repo: /workspace/metrale          # a git checkout; must have `allowed_remote`
 metrale_home: /workspace/.metrale         # METRALE_HOME for the child: signer + run history
 hardware: gb10                            # the box class the records will name
 cache_dir: /workspace/.metralectl-bench   # worktrees, builds, jobs, cargo target
-allowed_remote: metrale                   # a submitted commit must be reachable from here
 env:
   PATH_PREPEND: /usr/local/cuda/bin       # prepended to PATH; every other key is exported as is
   CUDARC_CUDA_VERSION: "13000"
 # Optional, with these defaults:
+allowed_remote: origin                    # a submitted commit must be reachable from here
 allow_unpublished_shas: false
 queue_depth: 2
 max_run_s: 10800
@@ -67,11 +68,13 @@ min_free_disk_bytes: 21474836480
 keep_builds: 5
 retain_jobs: 50
 retain_days: 7
-sync_recipes: true
-collect_extra: []
+sync_recipes: true                        # run `met sync-recipes` when METRALE_HOME has no recipe index
+collect_extra: []                         # accepted, and not read yet: nothing else is collected
 serve_reuse: false
 serve_release_after_s: 600
 ```
+
+Unknown keys are refused.
 
 With `serve_reuse: true` the child runs as `met benchmark run …
 --serve-reuse --serve-lease-owner <agent pid>`: it does not load the
@@ -100,7 +103,8 @@ Nothing else leaks in.
   jobs/<job id>/artifacts/        what the run wrote, by name
   jobs/by-key/<job key>           idempotency index → job id
   build/<sha>/met                 the built binary
-  build/<sha>/provenance.json     sha, binary sha256, built_at, bytes
+  build/<sha>/provenance.json     sha, binary_sha256, built_at_s, bytes
+  build/<sha>/build.log           the build's output
   worktrees/<sha>/                the checkout at that commit
   target/                         cargo's target dir, shared
 ```
@@ -134,12 +138,14 @@ Cancel is `SIGTERM` to the process group, `cancel_grace_s`, then
 {"job":"jb-1757770000-1a2b3c4d","seq":7,"at_ms":1757770123000,"kind":"progress","phase":"isl 512 · conc 8 [3/8]","detail":""}
 ```
 
-`seq` is 1-based and monotonic per job. Kinds: `queued`, `preparing`,
-`build` (`cached`, `reason`), `built` (`binary_sha256`, `cached`, `secs`),
-`running` (`pid`, `argv`), `progress`, `log` (`stream`, ≤ 64 `lines`),
-`log_truncated`, `verdict` (`{kind: pass|fail|info, text}`), `artifact`
-(`meta`), `done` (the outcome, flattened), and `heartbeat` every 10 s
-(repeats `seq_high`; never journaled).
+`seq` is 1-based and monotonic per job. Kinds: `queued` (`position`),
+`preparing` (`sha`, `fetched`), `build` (`cached`, `reason`), `built`
+(`binary_sha256`, `cached`, `secs`), `running` (`pid`, `argv`), `progress`
+(`phase`, `detail`), `log` (`stream`: `build`|`run`, ≤ 64 `lines`),
+`log_truncated` (`dropped_bytes`), `verdict` (`{kind: pass|fail|info, text}`),
+`artifact` (`meta`: `name`, `relative_path`, `bytes`, `sha256`, `kind`),
+`done` (the outcome, flattened), and `heartbeat` every 10 s (`state`,
+`seq_high`; its `seq` repeats the latest; never journaled).
 
 Outcomes: `completed` (`exit_code`, `verdict`, `record`, `signature`),
 `failed` (`stage`, `reason`), `timed_out` (`stage`, `after_s`),
@@ -156,14 +162,22 @@ finished job ends the stream on a terminal heartbeat.
 
 ```
 metralectl bench nodes 10.10.10.2,dgx3.local          what each node can run
-metralectl bench submit  NODE --sha SHA --gate ID [--param k=v]… [--job-key KEY]
+metralectl bench submit  NODE --sha SHA --gate ID [SPEC]
 metralectl bench attach  NODE JOB [--from-seq N] [--reconnect-for SECS]
 metralectl bench status  NODE [--job JOB]
 metralectl bench cancel  NODE JOB
 metralectl bench artifacts NODE JOB
 metralectl bench fetch   NODE JOB --out-dir DIR
-metralectl bench run     NODE --sha SHA --gate ID --out-dir DIR [--param k=v]…
+metralectl bench run     NODE --sha SHA --gate ID --out-dir DIR [SPEC] [--reconnect-for SECS]
+
+SPEC: [--param K=V]… [--checkpoint NAME] [--hardware CLASS] [--max-run-s SECS]
+      [--note TEXT] [--job-key KEY]
 ```
+
+Every subcommand takes `--json`. `--from-seq` defaults to 1 (replay from
+the start); `--reconnect-for` defaults to 86400, and 0 gives up on the
+first dropped link. `--hardware` is refused when the node is another box
+class; `--max-run-s` can only lower the node's own `max_run_s`.
 
 Addresses: `ip[:port]`, `[v6]:port`, `host.local[:port]`,
 `dns.name[:port]`; port omitted → 34334. A `.local` name the system
@@ -172,6 +186,17 @@ service record and dials the port the node advertises.
 
 `--json` puts exactly one document on stdout (one event per line for
 `attach` and `run`, then a summary line for `run`) and nothing else there.
+The documents `met bench certify` reads:
+
+| verb | stdout |
+|---|---|
+| `nodes` | one line, an array of `{node, ok, info?, error?}`; `info` is the node report above, `error` the object below |
+| `submit` | `{node, node_id, job_id, job_key, existing, state, position}` |
+| `attach` | one event per line, as in the stream above |
+| `fetch` | an array of `{name, relative_path, path, bytes, sha256}`, `path` being where the file was written |
+| `cancel` | `{node, node_id, job, state}` |
+| `run` | the events, then `{job_id, outcome, passed, files}` |
+
 Errors under `--json` are one object:
 
 ```json
@@ -192,10 +217,21 @@ Exit codes:
 | 7 | the stream was lost and the re-attach budget ran out |
 | 8 | the node's peer protocol is below bench |
 
+`code` is one of `unreachable`, `not_paired`, `not_granted`,
+`unsupported_version`, `refused:<code>`, `job_failed`, `job_cancelled`,
+`stream_lost`, `bad_args` or `io`; a node's refusal codes are
+`not_configured`, `busy`, `memory_pressure`, `disk_low`, `queue_full`,
+`key_conflict`, `sha_not_allowed`, `unknown_gate`, `bad_params`,
+`unknown_job`, `no_such_artifact`, `rate_limited` and `unsupported`.
+`nodes` prints every row, then exits with the first failing node's code.
+
 `fetch` writes each artifact at its repo-relative path under `--out-dir`
-(`.benchmarks/<gate>/<file>.json`, `.json.sig`, `.certify/<sha>/<gate>.log`),
-verifies size and sha256 against what the node promised, refuses any
-path that would land outside the directory, and never overwrites.
+(`.benchmarks/<gate>/<file>.json`, `.json.sig`, and the child's log as
+`.certify/<first 10 hex of sha>/<gate>.log`), verifies size and sha256
+against what the node promised, refuses any path that would land outside
+the directory, and never overwrites. `met bench certify` accepts exactly
+those three kinds from a unit and refuses a fetch that returns anything
+else.
 
 Submission is idempotent by `--job-key` (derived from sha, gate and
 params when omitted): the same key returns the same job; the same key

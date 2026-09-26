@@ -102,7 +102,9 @@ What bounds it:
 
 * **10 minutes.** After that the window is shut whether or not it was used.
 * **Single use.** A code that completed a pairing cannot complete a second.
-* **Three attempts, then a 60-second lockout.** A wrong code is not a free
+* **Three attempts, then the window closes.** Each attempt is charged before
+  its ceremony runs, concurrent ones included; once three are charged the
+  window admits no one else, and a new code has to be minted. A wrong code is not a free
   guess, so 8 digits are not brute-forced in the window they are alive for.
 * **Revocable.** Closing the window in the browser takes effect immediately.
 
@@ -163,6 +165,7 @@ attached is cut at its next event.
 
 ## Reproducing the parity claim
 
-Serve commands are byte-identical to the reference implementation's across the
-whole recipe corpus. See [docs/PARITY.md](docs/PARITY.md) for how that was
-measured, and for the differences that are deliberate.
+Serve commands were byte-identical to sparkrun 0.3.6's across the whole recipe
+corpus when that was measured. See [docs/PARITY.md](docs/PARITY.md) for how, why
+it cannot be re-run on the current corpus, and the differences that are
+deliberate.
