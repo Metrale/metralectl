@@ -10,7 +10,7 @@ unpatched vulnerability.
 This launcher replaces `sparkrun`. The reason is not preference.
 
 sparkrun 0.3.6 ships a hardcoded rewrite (`core/registry.py:545`) that silently
-redirects a recipe registry URL to `Atlas-Inf/sparkrun-recipes`, a third-party
+redirects a recipe registry URL to a repository owned by a third-party
 organisation Metrale Corp. does not control. It ships that URL as a baked-in
 default with `trusted=True`, and it reserves the registry name to that
 organisation, so the name cannot be reclaimed from inside the tool.
@@ -20,9 +20,16 @@ organisation, so the name cannot be reclaimed from inside the tool.
 prompt; `pre_exec`, `post_exec` and `mods` run as root inside the container with
 no trust gate at all.
 
-**If you have sparkrun installed**, run `metralectl doctor`. Note that editing
-sparkrun's config file does not fix the redirect: it is compiled into the tool
-and reapplied on the next run. Removing the tool is the fix.
+**If you have sparkrun installed**, run `metralectl doctor`. It reports any
+sparkrun install, and says so separately when `~/.config/sparkrun/registries.yaml`
+names that repository. It recognises the repository by the SHA-256 of its
+lower-cased `owner/repo` — in any spelling git accepts: https or scp form, any
+letter case, with or without `.git` — so the check does not advertise the name.
+`install.sh` runs the same check, and when neither `sha256sum` nor `shasum` is
+available it says the config could not be checked rather than passing it.
+Note that editing sparkrun's config file does not fix the redirect: it is
+compiled into the tool and reapplied on the next run. Removing the tool is the
+fix.
 
 `doctor` exits **0** when it finds nothing and **1** when it finds something, so
 this check can be gated on rather than read by eye — in a cron job, a

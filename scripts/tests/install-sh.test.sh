@@ -210,6 +210,43 @@ case "$out" in *"was not found"*) bad "a stopped docker must not be called missi
 contains "no nvidia runtime: named separately" "$(docker_state nogpu)" "NVIDIA container runtime"
 check "a healthy docker says nothing" "" "$(docker_state fine)"
 
+# --- check_redirected_registry ------------------------------------------------
+# The registry is matched by the SHA-256 of its `owner/repo`, so the source never
+# names it. These cases drive the matcher with a stand-in digest, that of
+# `example-org/example-recipes`; the shipped digest is pinned to doctor.rs's.
+STAND_IN=1ea1ea8ee8ea47212f97c4d36f31d2c489fd67e4e8287f3dfaaab7a7acdaf6d5
+registry_notice() { # url  hashers: yes|no
+    mkdir -p "$WORK/home/.config/sparkrun"
+    printf 'registries:\n- name: x\n  url: %s\n  trusted: true\n' "$1" \
+        > "$WORK/home/.config/sparkrun/registries.yaml"
+    ( . "$WORK/lib.sh"
+      REDIRECT_REGISTRY_SHA256=$STAND_IN
+      _hashers=$2
+      # shellcheck disable=SC2317  # called indirectly, by check_redirected_registry
+      command() {
+          case "$2" in
+              sparkrun) return 1 ;;
+              sha256sum|shasum) [ "$_hashers" = yes ] || return 1 ;;
+          esac
+          builtin command "$@"
+      }
+      HOME="$WORK/home" check_redirected_registry ) 2>&1
+}
+
+contains "the registry is found as sparkrun writes it (case, .git)" \
+    "$(registry_notice https://github.com/Example-Org/example-recipes.git yes)" "known to redirect"
+contains "and in scp form" \
+    "$(registry_notice git@github.com:example-org/example-recipes yes)" "known to redirect"
+check "a near-miss repository is not reported" "" \
+    "$(registry_notice https://github.com/example-org/example-recipes-fork.git yes)"
+check "nor a different owner" "" \
+    "$(registry_notice https://github.com/example-orgs/example-recipes.git yes)"
+contains "no SHA-256 tool: reported as unchecked, not passed in silence" \
+    "$(registry_notice https://github.com/other/repo.git no)" "could not be checked"
+rust_digest=$(sed -n 's/^ *"\([0-9a-f]\{64\}\)";$/\1/p' "$ROOT/crates/metralectl/src/commands/doctor.rs")
+sh_digest=$( . "$WORK/lib.sh"; printf '%s' "$REDIRECT_REGISTRY_SHA256")
+check "install.sh and doctor carry the same digest" "$rust_digest" "$sh_digest"
+
 # --- rc_file ------------------------------------------------------------------
 # The bug: everyone was told `~/.profile`. zsh -- the macOS default since
 # Catalina -- does not read it, so the only instruction a Mac user got did
