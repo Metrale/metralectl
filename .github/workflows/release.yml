@@ -261,6 +261,9 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: "1.93.1"
+          # The root Cargo.toml is itself a package, so without --workspace
+          # cargo-deny checks only its 4 dependencies, not the agent and CLI.
+          arguments: --workspace --all-features
           command: check advisories licenses sources bans
 
   build:
