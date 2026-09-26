@@ -2,7 +2,7 @@
 [package]
 name = "metralectl-protocol"
 description = "Wire types shared by the metralectl agent, the CLI, and the browser client."
-version = "0.1.1"
+version = "0.2.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
