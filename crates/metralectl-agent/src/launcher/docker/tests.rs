@@ -34,7 +34,7 @@ fn host() -> HostSnapshot {
             uid: 1000,
             gid: 1000,
         }),
-        home: "/home/spark".into(),
+        home: "/home/user".into(),
         hf_cache_dir: cache_with_model().display().to_string(),
         env: BTreeMap::new(),
     }

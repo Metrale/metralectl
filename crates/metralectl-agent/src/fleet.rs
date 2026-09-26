@@ -38,7 +38,7 @@ mod pairing_tests;
 ///
 /// Generous on purpose. mDNS records re-resolve on their own schedule rather
 /// than on ours, and 30 seconds turned out to be shorter than the refresh
-/// interval on a quiet network — a paired Spark that was up and answering
+/// interval on a quiet network — a paired DGX Spark that was up and answering
 /// showed as unreachable simply because nothing had re-announced it yet. One
 /// missed refresh must not make a machine blink out of someone's interface.
 pub const UNREACHABLE_AFTER: Duration = Duration::from_secs(120);

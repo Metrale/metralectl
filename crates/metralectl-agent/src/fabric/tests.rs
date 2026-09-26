@@ -45,7 +45,7 @@ fn real_dgx_spark() -> Vec<RawIface> {
 }
 
 #[test]
-fn the_real_spark_table_offers_roce_first_and_wifi_last() {
+fn the_real_dgx_spark_table_offers_roce_first_and_wifi_last() {
     let addrs = reachable_addresses(&real_dgx_spark());
 
     // Both RoCE ports lead, best-first. Wi-Fi is REACHABLE — another machine

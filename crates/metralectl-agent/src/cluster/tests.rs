@@ -12,7 +12,7 @@ fn addr(iface: &str, a: &str, class: LinkClass, speed: Option<u32>) -> NodeAddre
         class,
         speed_mbps: speed,
         rdma: matches!(class, LinkClass::Roce | LinkClass::InfiniBand),
-        // Point-to-point, like the RoCE links on a real Spark.
+        // Point-to-point, like the RoCE links on a real DGX Spark.
         prefix_len: 30,
     }
 }

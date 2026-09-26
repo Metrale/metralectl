@@ -7,8 +7,11 @@ use metralectl_core::io::{ProcessRunner, StdProcessRunner};
 
 use super::doctor_checks::{self, ConfigDirState, Finding};
 
-/// The compromised registry that sparkrun redirects to.
-const COMPROMISED_HOST: &str = "Atlas-Inf/sparkrun-recipes";
+/// SHA-256 of the lower-cased `owner/repo` of the registry sparkrun redirects
+/// recipes to. A digest rather than the name, so this check does not advertise
+/// the repository it warns about; `scripts/install.sh` carries the same value.
+const REDIRECT_REGISTRY_SHA256: &str =
+    "8af2c83739d271e6fb45661fca08da72beaddeabf404da9783dd8c682045adab";
 
 /// Run every check and report.
 pub fn run() -> Result<()> {
@@ -27,7 +30,7 @@ pub fn run() -> Result<()> {
         println!("{}", f.line);
         problems += usize::from(f.problem);
     }
-    problems += check_sparkrun();
+    problems += check_redirected_registry();
 
     println!();
     if problems == 0 {
@@ -84,14 +87,14 @@ fn check_docker() -> usize {
 /// marks it trusted — which lets recipe-supplied shell commands run on the host. We
 /// report it and print the exact removal commands. We never delete a user's
 /// files: that behaviour is precisely what makes a tool untrustworthy.
-fn check_sparkrun() -> usize {
+fn check_redirected_registry() -> usize {
     let Ok(home) = std::env::var("HOME") else {
         return 0;
     };
     let config = std::path::Path::new(&home).join(".config/sparkrun/registries.yaml");
     let installed = metralectl_core::platform::which("sparkrun").is_some();
     let redirected = std::fs::read_to_string(&config)
-        .map(|s| s.contains(COMPROMISED_HOST))
+        .map(|s| names_registry(&s, REDIRECT_REGISTRY_SHA256))
         .unwrap_or(false);
 
     if !installed && !redirected {
@@ -102,10 +105,10 @@ fn check_sparkrun() -> usize {
     println!("sparkrun: PROBLEM — a sparkrun install was found.");
     if redirected {
         println!(
-            "\x20         Its config at {} points a registry at",
+            "\x20         Its config at {} names a registry known to redirect",
             config.display()
         );
-        println!("\x20         {COMPROMISED_HOST}, which Metrale Corp. does not control.");
+        println!("\x20         recipes to a third-party source Metrale Corp. does not control.");
         println!(
             "\x20         Editing the file is not enough: the redirect is compiled into\n\
              \x20         sparkrun, so it is reapplied the next time the tool runs."
@@ -119,6 +122,31 @@ fn check_sparkrun() -> usize {
         "\x20         Review those directories first; metralectl will not delete them for you."
     );
     1
+}
+
+/// Whether `config` names a repository whose lower-cased `owner/repo` hashes
+/// to `sha256_hex`.
+fn names_registry(config: &str, sha256_hex: &str) -> bool {
+    use sha2::{Digest, Sha256};
+    registry_slugs(config).any(|slug| hex::encode(Sha256::digest(slug.as_bytes())) == sha256_hex)
+}
+
+/// The lower-cased `owner/repo` of every URL-shaped word in a config file:
+/// its last two path segments, without a trailing `/` or `.git`, reading an
+/// scp-style `host:owner/repo` as a path. `registry_slugs` in
+/// `scripts/install.sh` extracts the same words.
+fn registry_slugs(config: &str) -> impl Iterator<Item = String> + '_ {
+    config
+        .split(|c: char| !(c.is_ascii_alphanumeric() || "._:/@~+-".contains(c)))
+        .filter_map(|word| {
+            let word = word.to_ascii_lowercase();
+            let word = word.trim_end_matches('/');
+            let word = word.strip_suffix(".git").unwrap_or(word).replace(':', "/");
+            let mut segments = word.rsplit('/');
+            let repo = segments.next()?;
+            let owner = segments.next()?;
+            (!repo.is_empty() && !owner.is_empty()).then(|| format!("{owner}/{repo}"))
+        })
 }
 
 /// Free space where docker and the model cache live.
@@ -295,5 +323,65 @@ mod disk_tests {
     fn unknown_only_when_nothing_could_be_measured() {
         let f = disk_finding(None, None);
         assert!(!f.problem, "an unmeasurable box must not be failed");
+    }
+}
+
+#[cfg(test)]
+mod redirect_tests {
+    use super::*;
+
+    /// SHA-256 of `example-org/example-recipes`, a stand-in for the real
+    /// registry, which this public source does not name.
+    const STAND_IN: &str = "1ea1ea8ee8ea47212f97c4d36f31d2c489fd67e4e8287f3dfaaab7a7acdaf6d5";
+
+    fn config_with(url: &str) -> String {
+        format!(
+            "config_version: 1\nregistries:\n- name: official\n  url: https://github.com/other-org/recipe-registry.git\n  trusted: true\n- name: x\n  url: {url}\n  subpath: recipes\n  trusted: true\n"
+        )
+    }
+
+    /// The spellings git resolves to one repository all match: sparkrun writes
+    /// mixed case with `.git`, and a hand-edited file may use scp form, quotes,
+    /// a trailing slash or flow style.
+    #[test]
+    fn the_registry_is_found_in_every_spelling_git_accepts() {
+        for url in [
+            "https://github.com/Example-Org/example-recipes.git",
+            "\"https://github.com/example-org/EXAMPLE-RECIPES/\"",
+            "git@github.com:Example-Org/example-recipes.git",
+            "ssh://git@github.com/example-org/example-recipes",
+        ] {
+            assert!(names_registry(&config_with(url), STAND_IN), "{url}");
+        }
+        let flow = "registries: [{name: x, url: https://github.com/example-org/example-recipes}]";
+        assert!(names_registry(flow, STAND_IN));
+    }
+
+    /// A different repository is not the registry, however close its name.
+    #[test]
+    fn a_near_miss_is_not_the_registry() {
+        for url in [
+            "https://github.com/example-org/example-recipe.git",
+            "https://github.com/example-org/example-recipes-fork.git",
+            "https://github.com/example-orgs/example-recipes.git",
+            "https://github.com/example-org/example-recipes/extra",
+            "https://github.com/example-recipes.git",
+        ] {
+            assert!(!names_registry(&config_with(url), STAND_IN), "{url}");
+        }
+        assert!(!names_registry("example-org example-recipes", STAND_IN));
+    }
+
+    /// `names_registry` compares against `hex::encode`, which is lower case
+    /// and 64 characters; a digest in any other form can never match, and
+    /// the check would pass every machine in silence.
+    #[test]
+    fn the_shipped_digest_is_in_the_form_it_is_compared_in() {
+        assert_eq!(REDIRECT_REGISTRY_SHA256.len(), 64);
+        assert!(
+            REDIRECT_REGISTRY_SHA256
+                .chars()
+                .all(|c| c.is_ascii_digit() || ('a'..='f').contains(&c))
+        );
     }
 }

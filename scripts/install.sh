@@ -298,16 +298,59 @@ check_docker() {
     fi
 }
 
+# SHA-256 of the lower-cased `owner/repo` of the registry sparkrun redirects
+# recipes to. A digest rather than the name, so this script does not advertise
+# the repository it warns about; `metralectl doctor` carries the same value.
+REDIRECT_REGISTRY_SHA256="8af2c83739d271e6fb45661fca08da72beaddeabf404da9783dd8c682045adab"
+
+# The SHA-256 of stdin; fails when there is no tool to compute it.
+sha256_stdin() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | awk '{print $1}'
+    else
+        return 1
+    fi
+}
+
+# The lower-cased `owner/repo` of every URL-shaped word in a file: its last two
+# path segments, without a trailing `/` or `.git`, reading an scp-style
+# `host:owner/repo` as a path. `registry_slugs` in doctor.rs does the same.
+registry_slugs() {
+    tr '[:upper:]' '[:lower:]' < "$1" | tr -cs 'a-z0-9._:/@~+-' '[\n*]' \
+        | sed -e 's#/*$##' -e 's#\.git$##' -e 's#:#/#g' \
+        | awk -F/ 'NF >= 2 && $(NF-1) != "" && $NF != "" { print $(NF-1) "/" $NF }' \
+        | sort -u
+}
+
+# 0: the file names the redirect registry. 1: it does not. 2: no SHA-256 tool,
+# so it could not be checked.
+names_redirect_registry() {
+    command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || return 2
+    for slug in $(registry_slugs "$1"); do
+        [ "$(printf '%s' "$slug" | sha256_stdin)" = "$REDIRECT_REGISTRY_SHA256" ] && return 0
+    done
+    return 1
+}
+
 # Report a sparkrun install whose registry has been redirected.
 #
 # We never touch the user's files. The tool being replaced was compromised by
 # an upstream that quietly rewrote configuration; an installer that quietly
 # deletes things is not the answer to that.
-check_sparkrun() {
+check_redirected_registry() {
     cfg="${HOME}/.config/sparkrun/registries.yaml"
     found=""
     command -v sparkrun >/dev/null 2>&1 && found="yes"
-    [ -f "$cfg" ] && grep -q "Atlas-Inf/sparkrun-recipes" "$cfg" 2>/dev/null && found="redirected"
+    if [ -f "$cfg" ]; then
+        rc=0
+        names_redirect_registry "$cfg" || rc=$?
+        case "$rc" in
+            0) found="redirected" ;;
+            2) found="unchecked" ;;
+        esac
+    fi
 
     [ -n "$found" ] || return 0
 
@@ -315,11 +358,15 @@ check_sparkrun() {
     warn "================ SECURITY NOTICE ================"
     warn "A sparkrun install was found on this machine."
     if [ "$found" = "redirected" ]; then
-        warn "Its config points a registry at Atlas-Inf/sparkrun-recipes,"
-        warn "which Metrale Corp. does not control, and marks it trusted. A trusted registry's"
+        warn "Its config names a registry known to redirect recipes to a third-party"
+        warn "source Metrale Corp. does not control, and marks it trusted. A trusted registry's"
         warn "recipes can run shell commands on this host."
         warn "Editing that file is not enough — the redirect is compiled into sparkrun"
         warn "and is reapplied the next time it runs."
+    elif [ "$found" = "unchecked" ]; then
+        warn "Its registry config could not be checked: neither sha256sum nor shasum is"
+        warn "available. Treat it as redirected — sparkrun 0.3.6 rewrites a registry to a"
+        warn "third-party source whose recipes can run shell commands on this host."
     fi
     warn "To remove it:"
     warn "    pipx uninstall sparkrun     # or: uv tool uninstall sparkrun"
@@ -577,7 +624,7 @@ main() {
     esac
 
     check_docker
-    check_sparkrun
+    check_redirected_registry
     agent_ok=1
     install_agent "$dir/$BIN_NAME" "$join" "$grant_control" "$same_version" || agent_ok=0
 

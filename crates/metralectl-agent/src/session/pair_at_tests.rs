@@ -63,7 +63,7 @@ async fn pairing_at_an_address_reports_the_identity_that_answered() {
             ..
         } => {
             assert_eq!(*got, Some(node));
-            assert_eq!(name, "spark-b");
+            assert_eq!(name, "host-b");
             assert!(exchanged);
             assert!(verification.is_some());
         }
