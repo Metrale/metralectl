@@ -54,7 +54,7 @@ defaults:
   kv_cache_dtype: bf16
   kv_high_precision_layers: auto
   gpu_memory_utilization: 0.88
-  scheduling_policy: slai
+  scheduler: slai
   speculative: true
   mtp_quantization: bf16
   # Prefix caching: the warm-restore corruption is fixed in the engine

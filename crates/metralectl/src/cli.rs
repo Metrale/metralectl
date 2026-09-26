@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Command-line surface.
 
@@ -61,7 +61,7 @@ pub enum Command {
     #[command(subcommand)]
     Peer(PeerCmd),
 
-    /// Check this machine for problems, including a compromised sparkrun install.
+    /// Check this machine for problems, including a recipe-registry redirect to an untrusted source.
     Doctor,
 
     /// Run a certification gate on a paired node and bring the records back.
@@ -184,7 +184,7 @@ pub struct AgentPairArgs {
 ///
 /// `peer add` is a first-class path, not a fallback for when discovery fails.
 /// Enterprise wireless does client isolation, plenty of switches filter
-/// multicast, and the RoCE links between two Sparks are point-to-point /30s
+/// multicast, and the RoCE links between two DGX Sparks are point-to-point /30s
 /// where multicast reaches exactly one machine anyway.
 #[derive(Subcommand, Debug)]
 pub enum PeerCmd {

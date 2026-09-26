@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! This machine's side of a bench conversation: its key, its pins, and one
 //! runtime to dial on. Every request goes through [`Session::request`], so

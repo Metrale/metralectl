@@ -1,15 +1,17 @@
 # Vendored engine interfaces
 
-## `serve-options.v1.json`
+## `serve-options.v2.json`
 
 Every `met serve` flag, reflected out of the engine's own clap definition by
-`met dump-serve-options` (see `crates/spark-server/src/cli/manifest.rs` in the
-engine repository).
+`met dump-serve-options` (see `crates/server/src/cli/manifest.rs` in the
+engine repository), and the engine's `METRALE_*` lever table beside it. The `v2`
+in the name is the document's `schema_version`; the engine bumps it when the
+shape changes, not when a flag is added or removed.
 
 Regenerate deliberately:
 
 ```sh
-met dump-serve-options > vendor/serve-options.v1.json
+met dump-serve-options > vendor/serve-options.v2.json
 cargo test -p metralectl-core        # coverage check
 ```
 
@@ -29,8 +31,11 @@ It answers three questions that cannot be recovered from reading a recipe:
 - **Which flags exist.** Nine keys in shipping recipes were dropped on the floor
   for the life of this project because nothing could tell you they were real.
 - **Which take a value.** `video_allow_ffmpeg: true` and `gdn_fused_norm: true`
-  are written identically and emit differently.
-- **What each accepts.** `scheduling_policy` offered `fcfs` for four releases;
+  are written identically; the first always emitted a bare flag, the second
+  emitted `--gdn-fused-norm true` until the engine made every boolean bare.
+  A setting the engine can pin either way (`tool_grammar`,
+  `ssm_batched_recurrent`) now takes `auto`, `on` or `off` instead.
+- **What each accepts.** `scheduler` offered `fcfs` for four releases;
   the engine takes only `fifo` and `slai`, so every launch that chose it died
   inside the container.
 

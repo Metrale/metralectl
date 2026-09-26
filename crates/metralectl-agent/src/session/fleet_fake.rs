@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! A fleet fake shared by the pairing test modules.
 //!
@@ -37,7 +37,7 @@ impl RecordingFleet {
             outcome: PairOutcome {
                 node,
                 public_key: "1a2b3c".repeat(10),
-                name: "spark-b".to_owned(),
+                name: "host-b".to_owned(),
                 address: "10.10.10.2:8765".to_owned(),
                 verification: "amber-koala-drift".to_owned(),
             },

@@ -23,7 +23,7 @@ defaults:
   kv_cache_dtype: fp8
   kv_high_precision_layers: auto
   gpu_memory_utilization: 0.92
-  scheduling_policy: slai
+  scheduler: slai
   tool_call_parser: qwen3_coder
   ssm_cache_slots: 0
   speculative: true

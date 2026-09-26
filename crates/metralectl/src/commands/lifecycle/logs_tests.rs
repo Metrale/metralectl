@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! `logs`' container lookup, split out when `tests.rs` reached the 500-line cap
 //! — the same reason `tests.rs` itself was split out of `lifecycle.rs`.

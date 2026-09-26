@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The check that keeps this project honest about the engine's flags.
 //!
@@ -12,7 +12,7 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The engine's own account of `met serve`, as vendored.
-const SNAPSHOT: &str = include_str!("../../../../../vendor/serve-options.v1.json");
+const SNAPSHOT: &str = include_str!("../../../../../vendor/serve-options.v2.json");
 
 struct EngineFlag {
     key: String,
@@ -25,7 +25,7 @@ struct EngineFlag {
 fn engine_flags() -> Vec<EngineFlag> {
     let v: Value = serde_json::from_str(SNAPSHOT).expect("the vendored snapshot is JSON");
     assert_eq!(
-        v["schema_version"], 1,
+        v["schema_version"], 2,
         "the snapshot changed schema; read the engine's cli/manifest.rs before touching this"
     );
     v["flags"]
@@ -144,7 +144,7 @@ fn a_bare_toggle_here_is_a_bare_toggle_there() {
 
 #[test]
 fn no_picker_offers_a_value_the_engine_would_reject() {
-    // `scheduling_policy` offered "fcfs" for four releases. The engine accepts
+    // The scheduler policy offered "fcfs" for four releases. The engine accepts
     // only fifo and slai, so every launch that chose it died in the container
     // with a parse error, and nothing upstream of that could tell you why.
     let engine = engine_flags();

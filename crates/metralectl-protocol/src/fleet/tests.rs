@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
 
@@ -34,7 +34,7 @@ fn the_short_form_is_what_a_human_reads_off_a_screen() {
 fn a_display_name_cannot_carry_control_characters_or_run_long() {
     // A beacon is an unauthenticated write into someone's UI. Newlines and
     // escapes must not survive to the renderer.
-    let hostile = DisplayName::new("spark\u{0}-\u{1b}[31mred\n\n");
+    let hostile = DisplayName::new("host\u{0}-\u{1b}[31mred\n\n");
     assert!(!hostile.as_str().contains('\u{1b}'));
     assert!(!hostile.as_str().contains('\u{0}'));
     assert!(!hostile.as_str().contains('\n'));
@@ -100,7 +100,7 @@ fn addr(iface: &str, addr: &str, class: LinkClass, speed: Option<u32>) -> NodeAd
         class,
         speed_mbps: speed,
         rdma: matches!(class, LinkClass::Roce | LinkClass::InfiniBand),
-        // Point-to-point, like the RoCE links on a real Spark.
+        // Point-to-point, like the RoCE links on a real DGX Spark.
         prefix_len: 30,
     }
 }

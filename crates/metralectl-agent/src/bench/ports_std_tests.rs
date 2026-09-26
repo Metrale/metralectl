@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
 use crate::bench::child::{parse_progress, parse_verdict, sanitize};

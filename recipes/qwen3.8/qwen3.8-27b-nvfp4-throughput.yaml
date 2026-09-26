@@ -135,20 +135,20 @@ defaults:
   mtp_quantization: bf16
   # FIFO, not slai: at these widths the arbiter's reordering buys nothing and
   # the ladder was measured under fifo.
-  scheduling_policy: fifo
+  scheduler: fifo
   # The measured serve carried these two. They are inert for the ladder (no
   # tools in the prompts) but are part of the exact configuration, and the
   # parser is what a real tool-calling deployment needs.
   tool_call_parser: qwen3_coder
-  disable_tool_grammar: true
+  tool_grammar: off
   disable_thinking: true
   # Half the GDN h-state bytes AND cuts the bs=128 reserve 36.7 -> 22.4 GB,
   # which is what frees the KV the top rungs need. Gate-validated by
   # ssm-state-poisoning (12/12 byte-identical replays).
   ssm_h_dtype: f16-pool
   gdn_fused_norm: true
-  ssm_batched_recurrent: true
-  ssm_tail_midchunk: false
+  ssm_batched_recurrent: on
+  no_ssm_tail_midchunk: true
   # Pin MTP on: the throughput arbiter must not flip to serial mid-run, or the
   # rungs stop being reproducible.
   mtp_gate: force

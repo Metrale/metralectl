@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Packages the Rust binary as a Python wheel so `uvx metralectl` works with no
 # install step. There is no Python code here: maturin's `bin` bindings put the
@@ -14,7 +14,7 @@ build-backend = "maturin"
 name = "metralectl"
 description = "Launch Metrale Engine inference recipes on NVIDIA DGX Spark and other local accelerators."
 readme = "README.md"
-license = "AGPL-3.0-only"
+license = "MIT OR Apache-2.0"
 requires-python = ">=3.9"
 keywords = ["llm", "inference", "dgx-spark", "gb10", "metrale"]
 classifiers = [

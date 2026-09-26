@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
 use crate::docker::collective::NcclRoce;
@@ -13,8 +13,8 @@ pub(super) fn host() -> HostSnapshot {
             uid: 1000,
             gid: 1000,
         }),
-        home: "/home/spark".into(),
-        hf_cache_dir: "/home/spark/.cache/huggingface".into(),
+        home: "/home/user".into(),
+        hf_cache_dir: "/home/user/.cache/huggingface".into(),
         // TOKEN stands for a credential the agent holds; the proxy is the
         // one class a recipe may legitimately read.
         env: [
@@ -101,7 +101,7 @@ fn the_standard_environment_is_offline_by_default() {
 fn the_model_cache_is_mounted_from_the_host() {
     let p = plan(&recipe(""), &Placement::Solo);
     assert_eq!(
-        p.docker.volumes["/home/spark/.cache/huggingface"],
+        p.docker.volumes["/home/user/.cache/huggingface"],
         "/cache/huggingface"
     );
 }

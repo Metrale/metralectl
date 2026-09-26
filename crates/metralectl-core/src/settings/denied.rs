@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The flags no client may set, each with the reason.
 //!
@@ -90,6 +90,10 @@ pub static DENIED: &[(&str, Disposition)] = &[
     ),
     (
         "high_speed_swap_cache_blocks_per_seq",
+        Deny("part of the swap family, which is denied as a group"),
+    ),
+    (
+        "no_high_speed_swap_graph",
         Deny("part of the swap family, which is denied as a group"),
     ),
     (

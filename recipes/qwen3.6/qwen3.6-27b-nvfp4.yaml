@@ -34,7 +34,7 @@ metadata:
       pair; with the snapshot-eviction fix the interval no longer matters for the warm
       tail (16-token replay at interval 0 and 32 alike) — 32 keeps
       intra-turn checkpoints for branchy/partial-prefix reuse.
-    - qwen3_coder parser with disable_tool_grammar true is mandatory for
+    - qwen3_coder parser with tool_grammar off is mandatory for
       parallel tool calls — grammar-constraining collapses them to 0.00.
     - bf16 KV at 32k context: the 27B quality gates were run with bf16 KV;
       fp8 KV frees memory for longer contexts but was not part of that
@@ -73,5 +73,5 @@ defaults:
   num_drafts: 1
   mtp_quantization: bf16
   tool_call_parser: qwen3_coder
-  disable_tool_grammar: true
+  tool_grammar: off
   disable_thinking: true

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 name: Security
 
 on:
@@ -29,4 +29,7 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: "1.93.1"
+          # The root Cargo.toml is itself a package, so without --workspace
+          # cargo-deny checks only its 4 dependencies, not the agent and CLI.
+          arguments: --workspace --all-features
           command: check advisories licenses sources bans

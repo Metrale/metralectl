@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The commit half of the rank-service tests, split from `tests.rs` for size.
 //! The helpers (`service`, `agreeing`, `RecordingRunner`) stay in that module

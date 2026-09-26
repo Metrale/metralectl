@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
 use crate::identity::Identity;
@@ -242,7 +242,7 @@ fn report(id: NodeId, name: &str, can_launch: bool) -> crate::peer::link::PeerRe
     }
 }
 
-/// Enterprise wifi filters multicast and the Spark links are point-to-point
+/// Enterprise wifi filters multicast and the DGX Spark links are point-to-point
 /// /30s, so a paired machine having no beacon is ordinary — it is the case
 /// `peer add` exists for. Launchability was read from the beacon alone, so
 /// such a machine reported "not reachable right now" and could not be given a

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The reservation, which is what makes commit safe to carry only an epoch.
 
@@ -19,8 +19,8 @@ pub(super) fn host() -> metralectl_core::host::HostSnapshot {
             uid: 1000,
             gid: 1000,
         }),
-        home: "/home/spark".into(),
-        hf_cache_dir: "/home/spark/.cache/huggingface".into(),
+        home: "/home/user".into(),
+        hf_cache_dir: "/home/user/.cache/huggingface".into(),
         env: BTreeMap::new(),
     }
 }

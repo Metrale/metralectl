@@ -26,7 +26,7 @@ defaults:
   kv_cache_dtype: fp8
   kv_high_precision_layers: auto
   gpu_memory_utilization: 0.92
-  scheduling_policy: slai
+  scheduler: slai
   max_batch_size: 1
   max_num_seqs: 4
   oom_guard_mb: 1024

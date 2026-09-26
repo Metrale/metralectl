@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! A snapshot of the facts about the host that a launch depends on.
 
@@ -90,8 +90,8 @@ mod tests {
                 uid: 1000,
                 gid: 1000,
             }),
-            home: "/home/spark".into(),
-            hf_cache_dir: "/home/spark/.cache/huggingface".into(),
+            home: "/home/user".into(),
+            hf_cache_dir: "/home/user/.cache/huggingface".into(),
             env: [("TOKEN".to_string(), "abc".to_string())].into(),
         }
     }

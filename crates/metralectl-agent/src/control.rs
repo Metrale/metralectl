@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The single execution core for the seven single-node control operations.
 //!
@@ -170,7 +170,7 @@ impl LocalControl<'_> {
         // cannibalisation as concurrency rises. The blocking pool exists for
         // exactly this and keeps all async workers pollable. The extra context
         // switch is irrelevant against a `fork`/`exec`. (Same reasoning, and the
-        // same conclusion, as `spark-server`'s chat-prompt path.)
+        // same conclusion, as Metrale Engine's chat-prompt path.)
         //
         // `'static` is satisfied by OWNERSHIP rather than a scoped spawn: the
         // launcher is an `Arc` (clone = refcount bump), and `recipe` and

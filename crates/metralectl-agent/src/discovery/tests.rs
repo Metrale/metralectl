@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
 
@@ -70,7 +70,7 @@ fn a_record_without_a_usable_fingerprint_is_ignored_not_an_error() {
 fn hostile_strings_in_a_beacon_are_sanitised_before_anything_renders_them() {
     let props = vec![
         ("id".to_owned(), fp(2).to_string()),
-        ("name".to_owned(), "\u{1b}[31mspark\u{0}\n".to_owned()),
+        ("name".to_owned(), "\u{1b}[31mhost\u{0}\n".to_owned()),
         ("gpu".to_owned(), "A".repeat(500)),
     ];
     let b = Beacon::from_txt(&props, vec![], 34334).expect("parses");

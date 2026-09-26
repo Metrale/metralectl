@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The three-agent suite: origin → relay → target over real localhost TLS,
 //! driving the production `ControlDriver` against the production serving

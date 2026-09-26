@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Finding other agents on the LAN.
 //!
@@ -182,7 +182,7 @@ impl DiscoveryBrowser for NoDiscovery {
 
 /// This machine's hostname, or a stable fallback.
 ///
-/// Display only. Two Sparks called `spark-256a` are still two different nodes,
+/// Display only. Two DGX Sparks called `spark-256a` are still two different nodes,
 /// because a node is its key.
 #[must_use]
 pub fn local_display_name() -> DisplayName {
@@ -193,7 +193,7 @@ pub fn local_display_name() -> DisplayName {
 /// This machine's operating system, coarsely, for display.
 ///
 /// A name and nothing more — no version, no kernel build. It exists so an
-/// operator can tell their laptop from their Spark in a list, which needs one
+/// operator can tell their laptop from their DGX Spark in a list, which needs one
 /// word; anything finer would be fingerprinting material travelling between
 /// machines for no operational gain.
 #[must_use]

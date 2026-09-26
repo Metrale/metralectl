@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The flags a client may set, and how — the shape of the machine.
 //!
@@ -143,19 +143,30 @@ pub static EXPOSED: &[(&str, Disposition)] = &[
         ),
     ),
     (
-        "scheduling_policy",
+        "scheduler",
         e(
             // "fifo", not "fcfs". The engine validates against
-            // `cli::flag_values::SCHEDULING_POLICIES`, which has never
-            // contained "fcfs" — offering it produced a launch that died in
+            // `cli::flag_values::SCHEDULERS`, which has never contained
+            // "fcfs" — offering it produced a launch that died in
             // validate_serve_args, on the machine, after the operator had
             // already reviewed the command.
             Enum(&["fifo", "slai"]),
-            "Scheduling policy",
+            "Scheduler policy",
             "How queued requests are ordered.",
             None,
             Performance,
             false,
+        ),
+    ),
+    (
+        "scheduler_config",
+        e(
+            Enum(&["sync", "async"]),
+            "Scheduler router",
+            "sync runs every device step to completion before the next host decision; async runs one decode step ahead of the host where the model supports it.",
+            None,
+            Performance,
+            true,
         ),
     ),
     (

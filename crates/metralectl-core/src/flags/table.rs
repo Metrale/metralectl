@@ -1,15 +1,15 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The `met serve` flag table.
 //!
 //! The first 48 entries came from the reference implementation's flag map and
-//! boolean-flag list (sparkrun's runtime definition), in that exact declaration
-//! order, because emission order is part of the output contract: the website
+//! boolean-flag list, in that exact declaration order, because emission order
+//! is part of the output contract: the website
 //! prints the same command string this table renders, and the golden corpus
 //! asserts it byte-for-byte. Later entries are appended rather than sorted in,
 //! for the same reason.
 //!
-//! What the table covers is no longer a matter of belief. `vendor/serve-options.v1.json`
+//! What the table covers is no longer a matter of belief. `vendor/serve-options.v2.json`
 //! is reflected out of the engine's own clap definition, and `flags/coverage.rs`
 //! fails when a flag in it is neither claimed here nor excluded on the record.
 //!
@@ -20,20 +20,20 @@
 
 use super::{FlagKind, FlagSpec};
 
-/// Every serve flag the `metrale` runtime understands: 57 keys, 9 of them bare toggles.
+/// Every serve flag the `metrale` runtime understands: 62 keys, 15 of them bare toggles.
 #[rustfmt::skip] // One line per flag: this is a lookup table, and reading it
 // against the reference implementation is the point.
 /// The port `met serve` listens on when a recipe does not name one.
 ///
 /// Duplicated from the engine by necessity — metralectl cannot ask a binary it has
 /// not launched yet — but NOT trusted blindly: `the_default_port_matches_the_engine`
-/// asserts it against `vendor/serve-options.v1.json`, which is reflected out of
+/// asserts it against `vendor/serve-options.v2.json`, which is reflected out of
 /// the engine's own clap definition. If the engine changes its default, that
 /// test fails rather than metralectl quietly printing an endpoint URL pointing at
 /// a port nothing is listening on, moments after a successful launch.
 pub const DEFAULT_SERVE_PORT: &str = "8888";
 
-pub static METRALE_FLAGS: [FlagSpec; 57] = [
+pub static METRALE_FLAGS: [FlagSpec; 62] = [
     FlagSpec {
         key: "port",
         flag: "--port",
@@ -110,8 +110,8 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
         kind: FlagKind::Value,
     },
     FlagSpec {
-        key: "disable_tool_grammar",
-        flag: "--disable-tool-grammar",
+        key: "tool_grammar",
+        flag: "--tool-grammar",
         kind: FlagKind::Value,
     },
     FlagSpec {
@@ -120,8 +120,8 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
         kind: FlagKind::Value,
     },
     FlagSpec {
-        key: "scheduling_policy",
-        flag: "--scheduling-policy",
+        key: "scheduler",
+        flag: "--scheduler",
         kind: FlagKind::Value,
     },
     FlagSpec {
@@ -275,10 +275,9 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
         kind: FlagKind::Value,
     },
     // Set by shipping recipes and silently dropped until 2026-08-26, when the
-    // engine snapshot made the omission visible. `video_allow_ffmpeg` is the
-    // one bare toggle among them: every one of these is written `key: true` in
-    // a recipe, and only the snapshot says which of those means `--flag` and
-    // which means `--flag true`.
+    // engine snapshot made the omission visible. Every boolean among them is a
+    // bare toggle: the engine takes no `--flag true`, and a setting it can pin
+    // either way (`ssm_batched_recurrent`) is an `auto`/`on`/`off` value.
     FlagSpec {
         key: "lm_head_dtype",
         flag: "--lm-head-dtype",
@@ -292,7 +291,7 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
     FlagSpec {
         key: "gdn_fused_norm",
         flag: "--gdn-fused-norm",
-        kind: FlagKind::Value,
+        kind: FlagKind::BoolToggle,
     },
     FlagSpec {
         key: "ssm_batched_recurrent",
@@ -300,9 +299,9 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
         kind: FlagKind::Value,
     },
     FlagSpec {
-        key: "ssm_tail_midchunk",
-        flag: "--ssm-tail-midchunk",
-        kind: FlagKind::Value,
+        key: "no_ssm_tail_midchunk",
+        flag: "--no-ssm-tail-midchunk",
+        kind: FlagKind::BoolToggle,
     },
     FlagSpec {
         key: "mtp_gate",
@@ -312,7 +311,7 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
     FlagSpec {
         key: "prefill_varlen_batch",
         flag: "--prefill-varlen-batch",
-        kind: FlagKind::Value,
+        kind: FlagKind::BoolToggle,
     },
     FlagSpec {
         key: "request_timeout",
@@ -322,6 +321,31 @@ pub static METRALE_FLAGS: [FlagSpec; 57] = [
     FlagSpec {
         key: "video_allow_ffmpeg",
         flag: "--video-allow-ffmpeg",
+        kind: FlagKind::BoolToggle,
+    },
+    FlagSpec {
+        key: "scheduler_config",
+        flag: "--scheduler-config",
+        kind: FlagKind::Value,
+    },
+    FlagSpec {
+        key: "telemetry",
+        flag: "--telemetry",
+        kind: FlagKind::Value,
+    },
+    FlagSpec {
+        key: "w4a4_downcast",
+        flag: "--w4a4-downcast",
+        kind: FlagKind::BoolToggle,
+    },
+    FlagSpec {
+        key: "w4a4_downcast_wide",
+        flag: "--w4a4-downcast-wide",
+        kind: FlagKind::BoolToggle,
+    },
+    FlagSpec {
+        key: "no_high_speed_swap_graph",
+        flag: "--no-high-speed-swap-graph",
         kind: FlagKind::BoolToggle,
     },
 ];

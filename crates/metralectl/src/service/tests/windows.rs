@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The Windows plan's tests, split from [`super`] for size.
 
@@ -139,6 +139,7 @@ fn a_path_ending_in_a_backslash_survives_quoting() {
         browser: true,
         config_dir: Some(PathBuf::from("C:\\Users\\o\\state dir\\")),
         log_file: None,
+        bench_node: false,
     };
     let p = plan(ServiceKind::ScheduledTask, &a, Path::new("C:\\Users\\o"), 0);
     // The trailing backslash must be doubled so it escapes itself rather than

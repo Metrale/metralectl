@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What a remote client may set on a launch, and the check that enforces it.
 
@@ -95,7 +95,7 @@ pub fn check_override(key: &str, value: &ScalarValue) -> Result<(), SettingError
     // is the whole contract here: enforce the range, change nothing else.
     let sent = match (&spec.bound, value) {
         (BoundSpec::Enum(_), v) => SettingValue::Str(v.render()),
-        (BoundSpec::Toggle | BoundSpec::BoolValue, v) => SettingValue::Bool(v.is_truthy()),
+        (BoundSpec::Toggle, v) => SettingValue::Bool(v.is_truthy()),
         (_, ScalarValue::Bool(b)) => SettingValue::Bool(*b),
         (_, ScalarValue::Int(n)) => SettingValue::Int(*n),
         (_, ScalarValue::Float(f)) => SettingValue::Float(*f),

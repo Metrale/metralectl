@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The shape of a disposition: whether a client may set a flag, and how.
 
@@ -38,8 +38,6 @@ pub enum BoundSpec {
     Enum(&'static [&'static str]),
     /// Bare toggle.
     Toggle,
-    /// Explicit boolean value.
-    BoolValue,
     /// `auto` or a number.
     IntOrAuto(i64, i64),
 }
@@ -54,7 +52,6 @@ impl BoundSpec {
                 variants: v.iter().map(|s| (*s).to_string()).collect(),
             },
             Self::Toggle => Bound::Toggle,
-            Self::BoolValue => Bound::BoolValue,
             Self::IntOrAuto(a, b) => Bound::IntOrAuto { min: *a, max: *b },
         }
     }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The grant matrix, version skew and budget halves of the three-agent
 //! suite (harness in `relay_harness.rs`, adversarial routing cases in

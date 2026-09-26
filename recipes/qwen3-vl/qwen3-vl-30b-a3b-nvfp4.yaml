@@ -24,7 +24,7 @@ defaults:
   max_model_len: 32768
   kv_cache_dtype: fp8
   gpu_memory_utilization: 0.88
-  scheduling_policy: slai
+  scheduler: slai
   # Without this the ttft-warm-gate has nothing to be warm ABOUT: it serves this
   # recipe, every warm leg reports `cached 0 tok`, and it re-measures cold
   # prefill under a warm label. Observed on dgx1 at 546.1 ms warm vs 549.1 ms

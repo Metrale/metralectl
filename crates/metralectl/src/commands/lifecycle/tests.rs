@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Tests for `lifecycle`, moved out when the file reached the 500-line cap.
 //! Split verbatim: the module bodies are unchanged, only their `#[cfg(test)]`

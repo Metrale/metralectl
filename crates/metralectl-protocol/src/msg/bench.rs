@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The benchmark-job vocabulary: what a `bench`-granted peer may ask a node
 //! to do, and what the node answers.

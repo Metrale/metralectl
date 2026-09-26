@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The real [`Ports`]: git, cargo, a child in its own process group, and
 //! `/proc`. Linux only — the boxes that run gates are.

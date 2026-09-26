@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The cluster ceremonies: preview, prepare, commit, abort, stop, supervise.
 //!
@@ -172,7 +172,7 @@ impl ClusterDriver {
                     //
                     // ⚠ KNOWN, and not fixable here. `master_addr` is the
                     // RENDEZVOUS address -- deliberately the fastest link every
-                    // worker SHARES, which on a Spark pair is the point-to-point
+                    // worker SHARES, which on a DGX Spark pair is the point-to-point
                     // RoCE fabric (10.10.10.x). That is the right choice for the
                     // ranks talking to each other and the wrong one for the
                     // human: the operator's laptop is not on that fabric, so the

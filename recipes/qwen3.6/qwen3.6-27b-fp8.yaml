@@ -29,8 +29,7 @@ defaults:
   kv_cache_dtype: fp8
   kv_high_precision_layers: auto
   gpu_memory_utilization: 0.88
-  scheduling_policy: slai
-  speculative: false
+  scheduler: slai
   mtp_quantization: bf16
   enable_prefix_caching: true
   oom_guard_mb: 1024

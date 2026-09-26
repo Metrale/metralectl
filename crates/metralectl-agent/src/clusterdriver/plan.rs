@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Turning a selection into a plan every rank can be asked about.
 //!
@@ -117,7 +117,7 @@ impl ClusterDriver {
             return Ok(None);
         }
         // The peer's best address *from here*, not its best address outright.
-        // A Spark answers on several point-to-point links and this machine is
+        // A DGX Spark answers on several point-to-point links and this machine is
         // attached to only some of them; picking by class alone dials one that
         // goes nowhere and times out.
         let local = self.fleet.nodes();
@@ -182,5 +182,5 @@ impl ClusterDriver {
 /// while this layer went on reproducing it whenever the recipe pins no port.
 /// A comment asserting a value is the runtime's default is not a check, so
 /// `the_fallback_port_is_the_engines_own_default` now asserts it against
-/// `vendor/serve-options.v1.json`, which is reflected out of the engine's clap.
+/// `vendor/serve-options.v2.json`, which is reflected out of the engine's clap.
 pub(super) const DEFAULT_SERVE_PORT: u16 = 8888;

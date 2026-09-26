@@ -95,7 +95,7 @@ metadata:
     To raise it, override `max_model_len` at run time rather than editing this
     file, so the gate config stays reproducible:
 
-        sparkrun run @metrale/qwen3.8-27b-nvfp4-unsloth --max-model-len 131072
+        metralectl run qwen3.8-27b-nvfp4-unsloth -o max_model_len=131072
 
     Two honest constraints before you do:
 
@@ -146,7 +146,7 @@ defaults:
   # See provenance note 2 — correctness pin, do not lower.
   lm_head_dtype: bf16
   kv_high_precision_layers: auto
-  scheduling_policy: slai
+  scheduler: slai
   enable_prefix_caching: true
   # See provenance note 5 — agentic geometry, denser than the BFCL sibling's.
   ssm_cache_slots: 256

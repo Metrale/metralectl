@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The live facts a speed-class equivalence check needs, read from the same
 //! three places Metrale Engine's own hardware collector reads them: the accelerator

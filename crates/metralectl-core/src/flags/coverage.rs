@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The serve flags this project deliberately does not pass through.
 //!
-//! `vendor/serve-options.v1.json` is reflected out of the engine's own clap
+//! `vendor/serve-options.v2.json` is reflected out of the engine's own clap
 //! definition, so the set of flags is now a fact rather than a belief. Every
 //! one of them must be either claimed by `METRALE_FLAGS` or listed here with a
 //! reason; a test fails otherwise. That is the whole point of vendoring the
@@ -61,7 +61,6 @@ pub static EXCLUDED: &[(&str, &str)] = &[
     // what `metralectl stop` and the fleet view are about — and an engine that
     // swaps models underneath it would make that view a lie.
     ("auto_swap", "metralectl owns which model is loaded"),
-    ("no_auto_swap", "metralectl owns which model is loaded"),
     ("auto_compact", "changes conversation content server-side, which no recipe should decide"),
 
     // Sampling and template defaults. These belong to the request or to
@@ -82,7 +81,6 @@ pub static EXCLUDED: &[(&str, &str)] = &[
     // these through would make this launcher the place they get exercised.
     ("ssm_rollback_mode", "the engine marks it EXPERIMENTAL"),
     ("exact_verify", "the engine marks it OPT-IN"),
-    ("high_speed_swap_graph", "the engine marks it a phased rollout"),
 
     // Loader and memory knobs with no recipe asking for them. Not a judgement
     // that they are wrong — nothing has needed them, and an unexercised

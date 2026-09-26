@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 name: Release
 
 # Releases are cut by merging the pull request release-please maintains, not by
@@ -261,6 +261,9 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: "1.93.1"
+          # The root Cargo.toml is itself a package, so without --workspace
+          # cargo-deny checks only its 4 dependencies, not the agent and CLI.
+          arguments: --workspace --all-features
           command: check advisories licenses sources bans
 
   build:
@@ -319,7 +322,7 @@ jobs:
           out="metralectl-${{ matrix.target }}"
           mkdir -p "dist/$out"
           cp "target/${{ matrix.target }}/release/metralectl" "dist/$out/"
-          cp LICENSE "dist/$out/"
+          cp LICENSE-MIT LICENSE-APACHE "dist/$out/"
           cp crates/metralectl/README.md "dist/$out/README.md"
           tar -C "dist/$out" -cJf "dist/${out}.tar.xz" .
       # A zip, not a tar.xz. Windows has shipped `tar` since 1803, but nothing
@@ -334,7 +337,7 @@ jobs:
           $out = "metralectl-${{ matrix.target }}"
           New-Item -ItemType Directory -Force -Path "dist/$out" | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/metralectl.exe" "dist/$out/"
-          Copy-Item LICENSE "dist/$out/"
+          Copy-Item LICENSE-MIT, LICENSE-APACHE "dist/$out/"
           Copy-Item crates/metralectl/README.md "dist/$out/README.md"
           Compress-Archive -Path "dist/$out/*" -DestinationPath "dist/$out.zip" -Force
       - uses: actions/attest-build-provenance@v2
@@ -607,8 +610,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.tag }}
-      # Published for source availability under the AGPL, and for platforms the
-      # wheel matrix does not cover. Building it needs a Rust toolchain.
+      # Published for platforms the wheel matrix does not cover. Building it
+      # needs a Rust toolchain.
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist

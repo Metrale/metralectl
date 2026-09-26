@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The server a gate run may leave running on this node for the next one.
 //!
@@ -11,7 +11,7 @@
 //! it otherwise, and leaves it up. The agent's part is small: know that the
 //! leased server is its own and not a foreign tenant (`exclusive`), and
 //! stop it when nothing has needed it for a while, or at shutdown. The
-//! file's shape is Metrale Engine's (`spark-server/src/cli/bench_lease.rs`); only
+//! file's shape is Metrale Engine's (`crates/server/src/cli/bench_lease.rs`); only
 //! the fields the agent reads are named here.
 
 use std::path::{Path, PathBuf};

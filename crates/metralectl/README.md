@@ -29,4 +29,5 @@ without it. Linux, macOS and Windows — on Windows the agent is supervised by
 a Task Scheduler task at logon rather than a service, because a service runs
 in session 0 and cannot reach Docker Desktop's per-user named pipe.
 
-AGPL-3.0-only.
+Licensed under either of [MIT](https://github.com/Metrale/metralectl/blob/main/LICENSE-MIT)
+or [Apache-2.0](https://github.com/Metrale/metralectl/blob/main/LICENSE-APACHE), at your option.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Every `.` in this file sources $WORK/lib.sh, generated at run time from
 # install.sh below — there is no path shellcheck could follow. A file-level
 # directive has to precede all code, which is why it sits up here rather than
@@ -210,6 +210,46 @@ case "$out" in *"was not found"*) bad "a stopped docker must not be called missi
 contains "no nvidia runtime: named separately" "$(docker_state nogpu)" "NVIDIA container runtime"
 check "a healthy docker says nothing" "" "$(docker_state fine)"
 
+# --- check_redirected_registry ------------------------------------------------
+# The registry is matched by the SHA-256 of its `owner/repo`, so the source never
+# names it. These cases drive the matcher with a stand-in digest, that of
+# `example-org/example-recipes`; the shipped digest is pinned to doctor.rs's.
+STAND_IN=1ea1ea8ee8ea47212f97c4d36f31d2c489fd67e4e8287f3dfaaab7a7acdaf6d5
+registry_notice() { # url  hashers: yes|no
+    mkdir -p "$WORK/home/.config/sparkrun"
+    printf 'registries:\n- name: x\n  url: %s\n  trusted: true\n' "$1" \
+        > "$WORK/home/.config/sparkrun/registries.yaml"
+    ( . "$WORK/lib.sh"
+      # shellcheck disable=SC2034  # read by names_redirect_registry, from lib.sh
+      REDIRECT_REGISTRY_SHA256=$STAND_IN
+      _hashers=$2
+      # shellcheck disable=SC2317  # called indirectly, by check_redirected_registry
+      command() {
+          case "$2" in
+              sparkrun) return 1 ;;
+              sha256sum|shasum) [ "$_hashers" = yes ] || return 1 ;;
+          esac
+          builtin command "$@"
+      }
+      HOME="$WORK/home" check_redirected_registry ) 2>&1
+}
+
+contains "the registry is found as sparkrun writes it (case, .git)" \
+    "$(registry_notice https://github.com/Example-Org/example-recipes.git yes)" "known to redirect"
+contains "and in scp form" \
+    "$(registry_notice git@github.com:example-org/example-recipes yes)" "known to redirect"
+check "a near-miss repository is not reported" "" \
+    "$(registry_notice https://github.com/example-org/example-recipes-fork.git yes)"
+check "nor a different owner" "" \
+    "$(registry_notice https://github.com/example-orgs/example-recipes.git yes)"
+contains "no SHA-256 tool: reported as unchecked, not passed in silence" \
+    "$(registry_notice https://github.com/other/repo.git no)" "could not be checked"
+rust_digest=$(sed -n 's/^ *"\([0-9a-f]\{64\}\)";$/\1/p' "$ROOT/crates/metralectl/src/commands/doctor.rs")
+sh_digest=$(sed -n 's/^REDIRECT_REGISTRY_SHA256="\([0-9a-f]\{64\}\)"$/\1/p' "$ROOT/scripts/install.sh")
+if [ -n "$rust_digest" ]; then ok "doctor's digest was found"
+else bad "doctor's digest was found" "no 64-hex constant in doctor.rs"; fi
+check "install.sh and doctor carry the same digest" "$rust_digest" "$sh_digest"
+
 # --- rc_file ------------------------------------------------------------------
 # The bug: everyone was told `~/.profile`. zsh -- the macOS default since
 # Catalina -- does not read it, so the only instruction a Mac user got did
@@ -403,6 +443,23 @@ esac
 out=$(agent_fail no)
 contains "no held port: offers the foreground command" "$out" "agent run"
 contains "and names the platform's real log"          "$out" "journalctl"
+
+# --- finish_advice: the closing lines ----------------------------------------
+# With no user systemd bus (a container, CI) the service install fails while the
+# CLI works. The closing lines must say the install is usable and the agent is
+# optional, not that the machine is unusable until the agent is fixed. A failed
+# `--join` is the exception: it is what the operator came for.
+fin() { ( . "$WORK/lib.sh"; finish_advice "$1" "$2" /opt/bin/metralectl ) 2>&1; }
+
+out=$(fin 0 "")
+contains "no agent: the CLI is reported usable"      "$out" "installed and ready to use"
+contains "no agent: says how to set the agent up later" "$out" "/opt/bin/metralectl agent install"
+case "$out" in
+    *"Fix that first"*|*"cannot use this machine"*) bad "no agent: not reported as a broken install" "$out" ;;
+    *) ok "no agent: not reported as a broken install" ;;
+esac
+contains "a failed join is still reported as a failure" "$(fin 0 '12345678@10.0.0.1')" "did not complete"
+contains "a working agent ends with done"             "$(fin 1 "")" "done. Try:"
 
 # --- binary_differs: the upgrade decision ------------------------------------
 # The bug this encodes, reported from a real machine: the agent spoke wire

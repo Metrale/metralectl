@@ -117,14 +117,14 @@ defaults:
   # so deeper drafting pays here even where it does not at C>=16.
   num_drafts: 3
   mtp_quantization: bf16
-  scheduling_policy: fifo
+  scheduler: fifo
   tool_call_parser: qwen3_coder
-  disable_tool_grammar: true
+  tool_grammar: off
   disable_thinking: true
   ssm_h_dtype: f16-pool
   gdn_fused_norm: true
-  ssm_batched_recurrent: true
-  ssm_tail_midchunk: false
+  ssm_batched_recurrent: on
+  no_ssm_tail_midchunk: true
   mtp_gate: force
   # Batched varlen prefill helps TTFT whenever more than one request arrives
   # together, and is inert for a solo request (it keeps the inline chunk-0 path).

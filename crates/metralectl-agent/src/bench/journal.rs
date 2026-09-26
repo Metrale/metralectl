@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The per-job event journal: an append-only NDJSON file with a monotonic
 //! seq, and a watch that wakes attached readers.

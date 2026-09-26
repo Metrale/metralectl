@@ -75,7 +75,7 @@ defaults:
   # room for the drafter.
   lm_head_dtype: bf16
   kv_high_precision_layers: auto
-  scheduling_policy: slai
+  scheduler: slai
   enable_prefix_caching: true
   # A concurrency ladder issues independent sequences rather than replaying
   # long shared prefixes, so 8 slots keep the warm-prefix value at a quarter

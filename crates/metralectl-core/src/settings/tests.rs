@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
 use crate::flags;
@@ -178,7 +178,7 @@ fn nothing_a_client_sends_can_become_a_flag_shaped_argv_element() {
 /// inside the container after the operator has reviewed the command.
 ///
 /// If one of these fails, check the engine's `cli::flag_values` and
-/// `spark_runtime::kv_cache::KvCacheDtype::ALL`, then update the table.
+/// `KvCacheDtype::ALL`, then update the table.
 #[test]
 fn the_enumerated_values_still_match_the_engine() {
     let kv = super::dispositions()
@@ -199,14 +199,14 @@ fn the_enumerated_values_still_match_the_engine() {
     );
 
     let sp = super::dispositions()
-        .find(|(k, _)| *k == "scheduling_policy")
+        .find(|(k, _)| *k == "scheduler")
         .and_then(|(_, d)| match d {
             super::spec::Disposition::Expose(sp) => Some(sp),
             super::spec::Disposition::Deny(_) => None,
         })
-        .expect("scheduling_policy is exposed");
+        .expect("scheduler is exposed");
     let super::spec::BoundSpec::Enum(policies) = &sp.bound else {
-        panic!("scheduling_policy must be an enum");
+        panic!("scheduler must be an enum");
     };
     assert_eq!(
         *policies,

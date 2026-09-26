@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 [package]
 name = "metralectl"
 description = "Launch Metrale Engine inference recipes on NVIDIA DGX Spark and other local accelerators."

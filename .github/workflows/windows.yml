@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Windows is a supported target, so it needs a compiler that says so. Nothing
 # else in CI runs on Windows, and a unix-only API compiles perfectly well on

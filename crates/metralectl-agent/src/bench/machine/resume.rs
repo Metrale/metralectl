@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The two entry points a restart needs: resume a child that outlived the
 //! agent, or record that a job could not be recovered.

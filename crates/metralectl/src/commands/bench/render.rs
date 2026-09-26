@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The human renderings. Pure: strings in, strings out, so every line an
 //! operator reads has a test that pins it.

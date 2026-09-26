@@ -23,6 +23,5 @@ defaults:
   max_model_len: 131072
   kv_cache_dtype: bf16
   gpu_memory_utilization: 0.5
-  scheduling_policy: slai
-  speculative: false
+  scheduler: slai
   enable_prefix_caching: true

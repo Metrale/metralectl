@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The flags a client may set, and how — memory, KV cache and speculation.
 //!
@@ -9,10 +9,12 @@
 //! reader nothing.
 
 use super::spec::{BoundSpec, Disposition, Spec};
-use super::values::{DTYPES, KV_DTYPES, LM_HEAD_DTYPES, MTP_GATES, SSM_H_DTYPES};
+use super::values::{
+    DTYPES, KV_DTYPES, LM_HEAD_DTYPES, MTP_GATES, SSM_H_DTYPES, TELEMETRY_LEVELS, TRISTATES,
+};
 use metralectl_protocol::settings::Group;
 
-use BoundSpec::{BoolValue, Enum, Float, Int, IntOrAuto, Toggle};
+use BoundSpec::{Enum, Float, Int, IntOrAuto, Toggle};
 use Disposition::Expose;
 use Group::{MemoryKv, Performance, Server, Speculative, ToolsChat};
 
@@ -239,11 +241,11 @@ pub static EXPOSED_MEMORY: &[(&str, Disposition)] = &[
         ),
     ),
     (
-        "disable_tool_grammar",
+        "tool_grammar",
         e(
-            BoolValue,
-            "Disable tool grammar",
-            "Turn off grammar-constrained tool calls.",
+            Enum(TRISTATES),
+            "Tool grammar",
+            "Grammar-constrained tool calls: auto leaves it to the model, on or off pins it.",
             None,
             ToolsChat,
             true,
@@ -300,7 +302,7 @@ pub static EXPOSED_MEMORY: &[(&str, Disposition)] = &[
     (
         "gdn_fused_norm",
         e(
-            BoolValue,
+            Toggle,
             "Fused GDN norm",
             "Fuse the gated-delta-net normalisation into the preceding kernel.",
             None,
@@ -311,20 +313,20 @@ pub static EXPOSED_MEMORY: &[(&str, Disposition)] = &[
     (
         "ssm_batched_recurrent",
         e(
-            BoolValue,
+            Enum(TRISTATES),
             "Batched recurrence",
-            "Run the recurrent tail batched across sequences rather than one at a time.",
+            "Run the recurrent tail batched across sequences rather than one at a time: auto, on or off.",
             None,
             Performance,
             true,
         ),
     ),
     (
-        "ssm_tail_midchunk",
+        "no_ssm_tail_midchunk",
         e(
-            BoolValue,
-            "Mid-chunk tail",
-            "Start the recurrent tail inside a chunk instead of at its boundary.",
+            Toggle,
+            "No mid-chunk tail",
+            "Capture the recurrent tail at a chunk boundary instead of inside the chunk.",
             None,
             Performance,
             true,
@@ -333,9 +335,31 @@ pub static EXPOSED_MEMORY: &[(&str, Disposition)] = &[
     (
         "prefill_varlen_batch",
         e(
-            BoolValue,
+            Toggle,
             "Variable-length prefill",
             "Batch prefills of differing lengths without padding them to match.",
+            None,
+            Performance,
+            true,
+        ),
+    ),
+    (
+        "w4a4_downcast",
+        e(
+            Toggle,
+            "W4A4 downcast",
+            "Quantize activations to NVFP4 on the small-batch projections (up to 32 rows). A numerics change: check output quality per model.",
+            None,
+            Performance,
+            true,
+        ),
+    ),
+    (
+        "w4a4_downcast_wide",
+        e(
+            Toggle,
+            "W4A4 downcast, wide",
+            "Extend the W4A4 downcast from 32 to 64 rows. Only has an effect with W4A4 downcast on.",
             None,
             Performance,
             true,
@@ -349,6 +373,17 @@ pub static EXPOSED_MEMORY: &[(&str, Disposition)] = &[
             "Whether multi-token prediction is used when available, or always.",
             None,
             Speculative,
+            true,
+        ),
+    ),
+    (
+        "telemetry",
+        e(
+            Enum(TELEMETRY_LEVELS),
+            "Telemetry",
+            "off measures nothing; basic samples the GPU and records scheduler, cache and per-request metrics; kernel adds GPU timing spans, at a cost.",
+            None,
+            Server,
             true,
         ),
     ),

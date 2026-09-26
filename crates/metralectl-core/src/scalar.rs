@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Recipe scalar values and their rendering.
 
@@ -9,8 +9,7 @@ use serde::{Deserialize, Serialize};
 /// The YAML type is preserved rather than collapsed to a string, because it
 /// changes what gets emitted: a bare toggle is emitted only when its value is
 /// truthy, so `speculative: false` must render *nothing*, whereas
-/// `disable_tool_grammar: false` is a value flag and must render the literal
-/// `false`.
+/// `request_timeout: 0` is a value flag and must render the literal `0`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ScalarValue {

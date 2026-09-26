@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # The workspace root is ALSO a package (`metrale-recipes-data`). This is
 # deliberate and load-bearing: `cargo package` only includes files beneath the
@@ -19,7 +19,7 @@ members = ["crates/metralectl-core", "crates/metralectl", "crates/metralectl-pro
 # Everything else here is still shared.
 edition = "2024"
 rust-version = "1.88"
-license = "AGPL-3.0-only"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/Metrale/metralectl"
 authors = ["Metrale Corp."]
 
@@ -62,8 +62,9 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-include = ["src/**/*.rs", "recipes/**/*.yaml", "LICENSE"]
-# The root README.md is intentionally empty; do not ship it as the crate readme.
+include = ["src/**/*.rs", "recipes/**/*.yaml", "LICENSE-MIT", "LICENSE-APACHE"]
+# The root README.md describes metralectl, not this data crate; do not ship it
+# as the crate readme.
 readme = false
 build = "build.rs"
 
