@@ -90,8 +90,8 @@ mod tests {
                 uid: 1000,
                 gid: 1000,
             }),
-            home: "/home/spark".into(),
-            hf_cache_dir: "/home/spark/.cache/huggingface".into(),
+            home: "/home/operator".into(),
+            hf_cache_dir: "/home/operator/.cache/huggingface".into(),
             env: [("TOKEN".to_string(), "abc".to_string())].into(),
         }
     }

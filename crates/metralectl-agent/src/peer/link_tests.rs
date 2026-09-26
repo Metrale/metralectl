@@ -95,7 +95,7 @@ async fn a_control_only_agent_does_not_claim_it_can_launch() {
             &mut b,
             &PeerFrame::Hello {
                 version: PEER_PROTOCOL_VERSION,
-                name: "spark".to_owned(),
+                name: "node".to_owned(),
                 can_launch: true,
                 accelerator: "gb10".to_owned(),
                 os: "Linux".to_owned(),
@@ -237,7 +237,7 @@ async fn an_old_builds_hello_reads_as_did_not_say() {
         // Byte-for-byte what a pre-digest build serialises: no version_max,
         // no vouched. Writing PeerFrame::Hello here would test the NEW
         // serialiser against itself.
-        let old = br#"{"type":"hello","version":1,"name":"old-spark","can_launch":true,"accelerator":"GB10","os":"Linux","addresses":[]}"#;
+        let old = br#"{"type":"hello","version":1,"name":"old-node","can_launch":true,"accelerator":"GB10","os":"Linux","addresses":[]}"#;
         let framed_len = u32::try_from(old.len()).unwrap().to_be_bytes();
         b.write_all(&framed_len).await.unwrap();
         b.write_all(old).await.unwrap();
@@ -250,7 +250,7 @@ async fn an_old_builds_hello_reads_as_did_not_say() {
         .expect("a v1 hello must still complete the exchange");
     old_peer.await.unwrap();
 
-    assert_eq!(hello.name, "old-spark");
+    assert_eq!(hello.name, "old-node");
     assert_eq!(hello.version_max, None, "silence is not a version claim");
     assert_eq!(hello.vouched, None, "silence is not an empty pin store");
     // The normalization `query` applies: a build that never said a maximum

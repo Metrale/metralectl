@@ -116,7 +116,7 @@ async fn a_rank_that_dies_on_startup_fails_the_commit_and_stops_the_rest() {
     let err = d.commit(&epoch).await.expect_err("rank 0 did not survive");
     assert!(err.contains("stopped within"), "{err}");
     assert!(
-        err.contains("spark-1"),
+        err.contains("node-1"),
         "the dead machine must be named: {err}"
     );
 
@@ -141,7 +141,7 @@ async fn a_peer_that_dies_on_startup_fails_the_commit_too() {
         .expect("prepares");
 
     let err = d.commit(&epoch).await.expect_err("rank 2 did not survive");
-    assert!(err.contains("spark-3"), "{err}");
+    assert!(err.contains("node-3"), "{err}");
     assert!(
         calls(&log).contains(&"local.stop(head-container)".to_owned()),
         "rank 0 must be stopped too: {:?}",
@@ -216,7 +216,7 @@ async fn a_rank_that_dies_after_commit_tears_the_cluster_down() {
     d.kill_for_test(node_id(2));
     let torn = d.supervise().await.expect("a dead rank must be noticed");
     assert!(
-        torn.why.contains("spark-2"),
+        torn.why.contains("node-2"),
         "must name what died: {}",
         torn.why
     );
@@ -289,14 +289,14 @@ async fn a_stop_that_could_not_reach_a_peer_is_reported_and_can_be_retried() {
         .expect("prepares");
     d.commit(&epoch).await.expect("commits");
 
-    // spark-2 becomes unreachable -- the machine, not the container.
+    // node-2 becomes unreachable -- the machine, not the container.
     d.kill_for_test(node_id(2));
 
     let err = d
         .stop_cluster()
         .await
         .expect_err("an unreachable peer must not be reported as stopped");
-    assert!(err.contains("spark-2"), "must name the machine: {err}");
+    assert!(err.contains("node-2"), "must name the machine: {err}");
 
     // And the record survives, so the operator can press Stop again rather than
     // being told there was never a cluster.
@@ -306,7 +306,7 @@ async fn a_stop_that_could_not_reach_a_peer_is_reported_and_can_be_retried() {
         "the unreachable rank is still up, so a retry must still fail: {again:?}"
     );
     assert!(
-        again.unwrap_err().contains("spark-2"),
+        again.unwrap_err().contains("node-2"),
         "and must still name the same machine"
     );
 }

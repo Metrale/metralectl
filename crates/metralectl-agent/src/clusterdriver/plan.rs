@@ -117,7 +117,7 @@ impl ClusterDriver {
             return Ok(None);
         }
         // The peer's best address *from here*, not its best address outright.
-        // A Spark answers on several point-to-point links and this machine is
+        // A DGX Spark answers on several point-to-point links and this machine is
         // attached to only some of them; picking by class alone dials one that
         // goes nowhere and times out.
         let local = self.fleet.nodes();

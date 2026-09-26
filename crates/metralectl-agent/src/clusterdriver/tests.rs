@@ -27,7 +27,7 @@ pub(super) fn node_id(seed: u8) -> NodeId {
 fn descriptor(seed: u8, local: bool) -> NodeDescriptor {
     NodeDescriptor {
         id: node_id(seed),
-        name: DisplayName::new(&format!("spark-{seed}")),
+        name: DisplayName::new(&format!("node-{seed}")),
         is_local: local,
         pairing: PairingState::Paired,
         addresses: vec![NodeAddress {

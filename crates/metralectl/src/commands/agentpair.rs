@@ -42,7 +42,7 @@ pub fn pair(args: &crate::cli::AgentPairArgs) -> Result<()> {
         .context("starting a runtime")?;
 
     // Bind BEFORE printing the code. Printing first and failing after shows
-    // someone a code that can never be used — and on a second Spark that
+    // someone a code that can never be used — and on a second DGX Spark that
     // already had a pairing waiting, that is exactly what happened.
     let listener = runtime.block_on(async {
         tokio::net::TcpListener::bind(("0.0.0.0", args.port))

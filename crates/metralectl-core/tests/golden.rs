@@ -34,8 +34,8 @@ fn fixed_host() -> HostSnapshot {
             uid: 1000,
             gid: 1000,
         }),
-        home: "/home/spark".into(),
-        hf_cache_dir: "/home/spark/.cache/huggingface".into(),
+        home: "/home/operator".into(),
+        hf_cache_dir: "/home/operator/.cache/huggingface".into(),
         env: BTreeMap::new(),
     }
 }
@@ -93,7 +93,8 @@ fn render(recipe: &Recipe) -> String {
             // corpus is generated on Linux and compared byte for byte, so a
             // target-dependent one would make every golden fail everywhere
             // else while nothing had actually changed.
-            plan.docker.display_portable(Some("/home/spark"), "$HOME")
+            plan.docker
+                .display_portable(Some("/home/operator"), "$HOME")
         ));
         out.push_str(&format!(
             "# {label} — argv\n{}\n\n",

@@ -24,8 +24,8 @@ defaults:
   # max_batch_size=8, and the inference-buffer + SSM-pool + GDN
   # chunked-prefill preallocation scales with max_seq_len x batch
   # (8192 x 8), needing ~9.35 GB before weights load — more than the
-  # free GPU slice at gpu_memory_utilization 0.88, so `sparkrun run
-  # @metrale/qwen3.5-35b-a3b-nvfp4` fails preflight out of the box.
+  # free GPU slice at gpu_memory_utilization 0.88, so `metralectl run
+  # qwen3.5-35b-a3b-nvfp4` fails preflight out of the box.
   # 8192 x 2 keeps the full context while fitting the budget.
   max_batch_size: 2
   max_num_seqs: 2
