@@ -63,7 +63,8 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 include = ["src/**/*.rs", "recipes/**/*.yaml", "LICENSE-MIT", "LICENSE-APACHE"]
-# The root README.md is intentionally empty; do not ship it as the crate readme.
+# The root README.md describes metralectl, not this data crate; do not ship it
+# as the crate readme.
 readme = false
 build = "build.rs"
 
