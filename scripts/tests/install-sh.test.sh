@@ -220,6 +220,7 @@ registry_notice() { # url  hashers: yes|no
     printf 'registries:\n- name: x\n  url: %s\n  trusted: true\n' "$1" \
         > "$WORK/home/.config/sparkrun/registries.yaml"
     ( . "$WORK/lib.sh"
+      # shellcheck disable=SC2034  # read by names_redirect_registry, from lib.sh
       REDIRECT_REGISTRY_SHA256=$STAND_IN
       _hashers=$2
       # shellcheck disable=SC2317  # called indirectly, by check_redirected_registry
@@ -244,7 +245,9 @@ check "nor a different owner" "" \
 contains "no SHA-256 tool: reported as unchecked, not passed in silence" \
     "$(registry_notice https://github.com/other/repo.git no)" "could not be checked"
 rust_digest=$(sed -n 's/^ *"\([0-9a-f]\{64\}\)";$/\1/p' "$ROOT/crates/metralectl/src/commands/doctor.rs")
-sh_digest=$( . "$WORK/lib.sh"; printf '%s' "$REDIRECT_REGISTRY_SHA256")
+sh_digest=$(sed -n 's/^REDIRECT_REGISTRY_SHA256="\([0-9a-f]\{64\}\)"$/\1/p' "$ROOT/scripts/install.sh")
+if [ -n "$rust_digest" ]; then ok "doctor's digest was found"
+else bad "doctor's digest was found" "no 64-hex constant in doctor.rs"; fi
 check "install.sh and doctor carry the same digest" "$rust_digest" "$sh_digest"
 
 # --- rc_file ------------------------------------------------------------------
