@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Every `.` in this file sources $WORK/lib.sh, generated at run time from
 # install.sh below — there is no path shellcheck could follow. A file-level
 # directive has to precede all code, which is why it sits up here rather than

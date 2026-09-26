@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 name: Bootstrap crates.io publish
 
 # FIRST PUBLISH ONLY, then a recovery path — not a normal one.

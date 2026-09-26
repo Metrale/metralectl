@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Serving the bench frames: the grant check, the request dispatch, and the
 //! attached event stream.

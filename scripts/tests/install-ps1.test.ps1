@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Tests for scripts/install.ps1 — the `irm … | iex` one-liner.
 #

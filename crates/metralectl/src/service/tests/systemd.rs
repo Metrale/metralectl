@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The systemd plan's activate/verify contract, split from [`super`] for size
 //! and to sit beside its Windows counterpart in `windows.rs`.

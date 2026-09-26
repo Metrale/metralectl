@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The session's remote-routing surface: rule O1, the relay hand-off, and
 //! the provenance every reply must state.

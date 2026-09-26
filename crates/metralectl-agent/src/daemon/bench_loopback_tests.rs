@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Two real agents over localhost TLS, driving the bench frames through the
 //! production serving path with the production client (`peer::bench`).

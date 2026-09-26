@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The client half of the benchmark-job frames: asking a node to run a gate,
 //! and following the job it runs.
