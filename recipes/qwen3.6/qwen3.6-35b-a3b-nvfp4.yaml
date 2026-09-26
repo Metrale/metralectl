@@ -45,7 +45,7 @@ metadata:
     validated 2026-06-06 — quality holds vs bf16 within N=10 noise),
     kv_high_precision_layers auto, slai scheduling, native bf16 MTP draft
     head (downcasting lowers draft acceptance). qwen3_coder with
-    disable_tool_grammar true is mandatory for parallel tool calls —
+    tool_grammar off is mandatory for parallel tool calls —
     grammar-constraining collapses them to 0.00 on BFCL.
 
     Requires metrale/metrale-inference-gb10:dev (>= 2026-07-10T19:18Z), which carries
@@ -70,7 +70,7 @@ defaults:
   max_model_len: 262144
   kv_cache_dtype: fp8
   gpu_memory_utilization: 0.88
-  scheduling_policy: slai
+  scheduler: slai
   speculative: true
   # Measured optimum for this checkpoint (see description): K=1 = 116.5
   # tok/s vs 89.7 no-spec vs 82.2 at K=2. K=2 is a net LOSS — do not raise.
@@ -88,5 +88,5 @@ defaults:
   ssm_cache_slots: 128
   ssm_checkpoint_interval: 32
   tool_call_parser: qwen3_coder
-  disable_tool_grammar: true
+  tool_grammar: off
   disable_thinking: true

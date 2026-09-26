@@ -146,7 +146,7 @@ defaults:
   # See provenance note 2 — correctness pin, do not lower.
   lm_head_dtype: bf16
   kv_high_precision_layers: auto
-  scheduling_policy: slai
+  scheduler: slai
   enable_prefix_caching: true
   # See provenance note 5 — agentic geometry, denser than the BFCL sibling's.
   ssm_cache_slots: 256

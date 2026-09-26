@@ -12,17 +12,19 @@ fn cfg(pairs: &[(&str, ScalarValue)]) -> BTreeMap<String, ScalarValue> {
 
 #[test]
 fn table_matches_the_reference_shape() {
-    // 48 from the reference implementation, plus the 9 it dropped. The counts
+    // 48 from the reference implementation, plus the 9 it dropped, plus the
+    // five the engine added (`scheduler_config`, `telemetry`, the two W4A4
+    // downcasts and `no_high_speed_swap_graph`). The counts
     // are here to make a change deliberate, not to police it: what the table
     // must *cover* is checked against the engine snapshot in `flags::coverage`,
     // which is an authority this number is not.
-    assert_eq!(METRALE_FLAGS.len(), 57, "flag count changed");
+    assert_eq!(METRALE_FLAGS.len(), 62, "flag count changed");
     assert_eq!(
         METRALE_FLAGS
             .iter()
             .filter(|s| s.kind == FlagKind::BoolToggle)
             .count(),
-        9,
+        15,
         "bool-toggle count changed"
     );
 }
@@ -111,27 +113,30 @@ fn lm_head_dtype_reaches_the_command_line() {
 
 #[test]
 fn a_toggle_claimed_from_the_snapshot_emits_bare() {
-    // `video_allow_ffmpeg: true` and `gdn_fused_norm: true` are written the
-    // same way and must not render the same way.
+    // The engine takes no `--flag true`: `gdn_fused_norm: true` must render as
+    // bare as `video_allow_ffmpeg: true`, while a setting it can pin either way
+    // takes `auto`/`on`/`off` as a value.
     let resolved = cfg(&[
         ("video_allow_ffmpeg", ScalarValue::Bool(true)),
         ("gdn_fused_norm", ScalarValue::Bool(true)),
+        ("ssm_batched_recurrent", ScalarValue::Str("on".into())),
+        ("w4a4_downcast_wide", ScalarValue::Bool(true)),
+        ("telemetry", ScalarValue::Str("basic".into())),
     ]);
     let (argv, unmapped) = render(&resolved, &[]);
     assert!(unmapped.is_empty());
-    assert!(
-        argv.contains(&"--video-allow-ffmpeg".to_string())
-            && !argv.contains(&"--video-allow-ffmpeg=true".to_string()),
-        "a bare toggle takes no value: {argv:?}"
-    );
-    let i = argv
-        .iter()
-        .position(|a| a == "--gdn-fused-norm")
-        .expect("emitted");
     assert_eq!(
-        argv[i + 1],
-        "true",
-        "a value flag takes its value: {argv:?}"
+        argv,
+        [
+            "--gdn-fused-norm",
+            "--ssm-batched-recurrent",
+            "on",
+            "--video-allow-ffmpeg",
+            "--telemetry",
+            "basic",
+            "--w4a4-downcast-wide"
+        ],
+        "bare toggles take no value; a tristate takes its value: {argv:?}"
     );
 }
 

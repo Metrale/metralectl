@@ -31,7 +31,7 @@ defaults:
   max_num_seqs: 2
   kv_cache_dtype: fp8
   gpu_memory_utilization: 0.88
-  scheduling_policy: slai
+  scheduler: slai
   speculative: true
   mtp_quantization: bf16
   enable_prefix_caching: true

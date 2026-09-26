@@ -71,5 +71,5 @@ defaults:
   num_drafts: 1
   mtp_quantization: bf16
   tool_call_parser: qwen3_coder
-  disable_tool_grammar: true
+  tool_grammar: off
   disable_thinking: true

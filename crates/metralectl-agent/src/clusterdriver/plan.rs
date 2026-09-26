@@ -182,5 +182,5 @@ impl ClusterDriver {
 /// while this layer went on reproducing it whenever the recipe pins no port.
 /// A comment asserting a value is the runtime's default is not a check, so
 /// `the_fallback_port_is_the_engines_own_default` now asserts it against
-/// `vendor/serve-options.v1.json`, which is reflected out of the engine's clap.
+/// `vendor/serve-options.v2.json`, which is reflected out of the engine's clap.
 pub(super) const DEFAULT_SERVE_PORT: u16 = 8888;

@@ -36,7 +36,7 @@ defaults:
   max_model_len: 32768
   kv_cache_dtype: bf16
   gpu_memory_utilization: 0.90
-  scheduling_policy: slai
+  scheduler: slai
   speculative: true
   mtp_quantization: bf16
   # ★ DETERMINISM PIN, not a performance knob. Without it the MTP gate runs in

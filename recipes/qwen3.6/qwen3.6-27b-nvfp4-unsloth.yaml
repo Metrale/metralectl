@@ -70,7 +70,7 @@ defaults:
   num_drafts: 1
   mtp_quantization: bf16
   tool_call_parser: qwen3_coder
-  disable_tool_grammar: true
+  tool_grammar: off
   disable_thinking: true
   # video-fidelity gate — this recipe is that gate's default serve (added
   # 2026-08-15). The MP4/MOV legs are decoded by the server shelling out to

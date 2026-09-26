@@ -356,7 +356,7 @@ pub(super) fn calls(log: &Log) -> Vec<String> {
 #[test]
 fn the_fallback_port_is_the_engines_own_default() {
     use super::plan::DEFAULT_SERVE_PORT;
-    const SNAPSHOT: &str = include_str!("../../../../vendor/serve-options.v1.json");
+    const SNAPSHOT: &str = include_str!("../../../../vendor/serve-options.v2.json");
 
     // Deliberately a string scan rather than a JSON parse: this file has no
     // serde dependency, and the shape being matched is the one the generator

@@ -79,15 +79,17 @@ including `lm_head_dtype`, which appears in four recipes and is described in one
 of them as a correctness pin. None had ever reached the engine.
 
 All nine are now claimed, and the reconciliation that made that safe is
-`vendor/serve-options.v1.json` — the engine's own clap definition, reflected out
+`vendor/serve-options.v2.json` — the engine's own clap definition, reflected out
 of `met dump-serve-options`. `flags::coverage` fails the build when a flag in
 it is neither claimed by the table nor listed in `EXCLUDED` with a reason, so a
 new engine flag can no longer join the dropped set by simply appearing.
 
 The snapshot settled a question a transcription could not. `video_allow_ffmpeg:
-true` and `gdn_fused_norm: true` are written identically in YAML and emit
-differently — `--video-allow-ffmpeg` bare, `--gdn-fused-norm true` — and only
-the engine knows which is which. It also caught two bounds this project had
+true` and `gdn_fused_norm: true` are written identically in YAML and once
+emitted differently — `--video-allow-ffmpeg` bare, `--gdn-fused-norm true` —
+and only the engine knew which was which. The engine has since made every
+boolean a bare flag (settings it can pin either way take `auto`, `on` or
+`off`), and the regenerated snapshot is what carried that change here. It also caught two bounds this project had
 invented that its own recipes violated: `request_timeout` was `1..=86400` while
 a shipping recipe sets `0` (which the engine documents as disabling the
 deadline), and `max_batch_size` was `1..=64` while a shipping recipe sets `128`.

@@ -93,6 +93,10 @@ pub static DENIED: &[(&str, Disposition)] = &[
         Deny("part of the swap family, which is denied as a group"),
     ),
     (
+        "no_high_speed_swap_graph",
+        Deny("part of the swap family, which is denied as a group"),
+    ),
+    (
         "video_allow_ffmpeg",
         Deny("spawns an external decoder process; a recipe may enable that, a client may not"),
     ),

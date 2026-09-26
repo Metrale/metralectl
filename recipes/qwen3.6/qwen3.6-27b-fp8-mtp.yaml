@@ -68,7 +68,7 @@ defaults:
   # an fp8-KV knob and is intentionally absent.)
   kv_cache_dtype: bf16
   gpu_memory_utilization: 0.88
-  scheduling_policy: slai
+  scheduler: slai
   speculative: true
   # K=1, MEASURED (see description): 15.6 tok/s vs 5.0 at K=2 vs 4.9
   # no-spec, N=10. K=2 is a 3x REGRESSION here — do not raise it.

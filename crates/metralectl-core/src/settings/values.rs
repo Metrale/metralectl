@@ -13,7 +13,7 @@
 
 /// Every KV-cache precision the serving runtime accepts.
 ///
-/// Transcribed from `spark_runtime::kv_cache::KvCacheDtype::ALL`, which is
+/// Transcribed from the engine's `KvCacheDtype::ALL`, which is
 /// derived from the enum under a wildcard-free match so adding a variant
 /// fails that build rather than silently missing from a picker. This list is
 /// the one place that transcription lives; `settings/tests.rs` records the
@@ -57,3 +57,12 @@ pub(super) const SSM_H_DTYPES: &[&str] = &["f32", "f16", "f16-pool"];
 
 /// When multi-token prediction runs.
 pub(super) const MTP_GATES: &[&str] = &["auto", "force"];
+
+/// A setting the engine can leave to the model's own default or pin either way.
+///
+/// Transcribed from the engine's `cli::flag_values::TRISTATES`: `auto` defers
+/// to MODEL.toml or the environment, `on` and `off` override both.
+pub(super) const TRISTATES: &[&str] = &["auto", "on", "off"];
+
+/// Telemetry levels, from the engine's `cli::flag_values::TELEMETRY_LEVELS`.
+pub(super) const TELEMETRY_LEVELS: &[&str] = &["off", "basic", "kernel"];
