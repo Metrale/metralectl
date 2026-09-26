@@ -111,8 +111,8 @@ mod tests {
     #[test]
     fn a_host_and_port_survives() {
         assert_eq!(
-            parse("12345678@spark:34334").expect("parses").hosts,
-            ["spark:34334"]
+            parse("12345678@host:34334").expect("parses").hosts,
+            ["host:34334"]
         );
     }
 

@@ -19,8 +19,8 @@ pub(super) fn host() -> metralectl_core::host::HostSnapshot {
             uid: 1000,
             gid: 1000,
         }),
-        home: "/home/spark".into(),
-        hf_cache_dir: "/home/spark/.cache/huggingface".into(),
+        home: "/home/user".into(),
+        hf_cache_dir: "/home/user/.cache/huggingface".into(),
         env: BTreeMap::new(),
     }
 }

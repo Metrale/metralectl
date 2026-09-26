@@ -1,5 +1,5 @@
 # solo — shell
-docker run -d --entrypoint '' --gpus all --ipc=host --shm-size=32gb --network=host --user 1000:1000 -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro --security-opt no-new-privileges --security-opt seccomp=unconfined --cap-add=IPC_LOCK --cap-add=SYS_NICE --ulimit memlock=-1:-1 --ulimit stack=67108864 --device /dev/infiniband --label io.metralectl.managed=1 --label io.metralectl.recipe=mistral-small-4-119b-nvfp4 --rm --name metrale-mistral-small-4-119b-nvfp4 -e HF_HOME=/cache/huggingface -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -v /home/spark/.cache/huggingface:/cache/huggingface metrale/metrale-inference-gb10:latest met serve mistralai/Mistral-Small-4-119B-2603-NVFP4 --port 8888 --host 0.0.0.0 --gpu-memory-utilization 0.88 --max-seq-len 8192 --kv-cache-dtype bf16 --scheduler slai
+docker run -d --entrypoint '' --gpus all --ipc=host --shm-size=32gb --network=host --user 1000:1000 -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro --security-opt no-new-privileges --security-opt seccomp=unconfined --cap-add=IPC_LOCK --cap-add=SYS_NICE --ulimit memlock=-1:-1 --ulimit stack=67108864 --device /dev/infiniband --label io.metralectl.managed=1 --label io.metralectl.recipe=mistral-small-4-119b-nvfp4 --rm --name metrale-mistral-small-4-119b-nvfp4 -e HF_HOME=/cache/huggingface -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -v /home/user/.cache/huggingface:/cache/huggingface metrale/metrale-inference-gb10:latest met serve mistralai/Mistral-Small-4-119B-2603-NVFP4 --port 8888 --host 0.0.0.0 --gpu-memory-utilization 0.88 --max-seq-len 8192 --kv-cache-dtype bf16 --scheduler slai
 
 # solo — portable
 docker run -d --entrypoint '' --gpus all --ipc=host --shm-size=32gb --network=host --user $(id -u):$(id -g) -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro --security-opt no-new-privileges --security-opt seccomp=unconfined --cap-add=IPC_LOCK --cap-add=SYS_NICE --ulimit memlock=-1:-1 --ulimit stack=67108864 --device /dev/infiniband --label io.metralectl.managed=1 --label io.metralectl.recipe=mistral-small-4-119b-nvfp4 --rm --name metrale-mistral-small-4-119b-nvfp4 -e HF_HOME=/cache/huggingface -e HF_HUB_OFFLINE=1 -e TRANSFORMERS_OFFLINE=1 -v $HOME/.cache/huggingface:/cache/huggingface metrale/metrale-inference-gb10:latest met serve mistralai/Mistral-Small-4-119B-2603-NVFP4 --port 8888 --host 0.0.0.0 --gpu-memory-utilization 0.88 --max-seq-len 8192 --kv-cache-dtype bf16 --scheduler slai
@@ -47,7 +47,7 @@ HF_HUB_OFFLINE=1
 -e
 TRANSFORMERS_OFFLINE=1
 -v
-/home/spark/.cache/huggingface:/cache/huggingface
+/home/user/.cache/huggingface:/cache/huggingface
 metrale/metrale-inference-gb10:latest
 met
 serve

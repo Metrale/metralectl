@@ -184,7 +184,7 @@ pub struct AgentPairArgs {
 ///
 /// `peer add` is a first-class path, not a fallback for when discovery fails.
 /// Enterprise wireless does client isolation, plenty of switches filter
-/// multicast, and the RoCE links between two Sparks are point-to-point /30s
+/// multicast, and the RoCE links between two DGX Sparks are point-to-point /30s
 /// where multicast reaches exactly one machine anyway.
 #[derive(Subcommand, Debug)]
 pub enum PeerCmd {
