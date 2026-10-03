@@ -2,6 +2,6 @@
 # Written by `scripts/engine-recipes.py sync`; CI refuses a tree that differs
 # from this release's assets. Change recipes in the engine repository.
 repository = "Metrale/metrale-inference"
-release = "b7"
-commit = "31a81d18a9f977ee5c6d19f9f2f24ab7ddd3da11"
-index_sha256 = "ba636d50145a8d4e02a494a60585b5297b4c0620aca14bef56acae78e3f0fbc9"
+release = "b34"
+commit = "79dea21d52ce7fb4adab2bfec1a14b13211d8286"
+index_sha256 = "4d205a48ab4f0358ca48158feeb2ed6a8ffd49964d0328b3110cdf9abfabf011"
