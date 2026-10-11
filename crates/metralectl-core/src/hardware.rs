@@ -7,13 +7,13 @@
 //! so the caution, the launch gate and the reconciler cannot disagree about
 //! what a machine is.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A hardware class: the key that placements, compatibility receipts and
 /// release manifests use (`gb10`). A DNS label, as the platform contract
 /// spells it.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize)]
-#[serde(try_from = "String")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub struct HardwareClass(String);
 
 impl HardwareClass {
@@ -53,6 +53,12 @@ impl TryFrom<String> for HardwareClass {
     type Error = String;
     fn try_from(s: String) -> Result<Self, String> {
         Self::parse(&s)
+    }
+}
+
+impl From<HardwareClass> for String {
+    fn from(c: HardwareClass) -> Self {
+        c.0
     }
 }
 

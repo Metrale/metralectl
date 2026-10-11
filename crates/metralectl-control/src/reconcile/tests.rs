@@ -9,6 +9,7 @@
 
 use super::contract::*;
 use super::*;
+use crate::platform::action::RefusalReason;
 use metralectl_core::hardware::HardwareClass;
 use metralectl_protocol::RecipeId;
 
@@ -331,7 +332,11 @@ fn a_release_this_node_cannot_match_is_refused_and_the_old_generation_kept() {
                 recipe_model,
             },
         );
-        assert_eq!(step.word(), Some("release_unverified"), "{recipe_model:?}");
+        assert_eq!(
+            step.reason(),
+            Some(RefusalReason::ReleaseUnverified),
+            "{recipe_model:?}"
+        );
     }
 }
 
@@ -371,18 +376,11 @@ fn steps_become_only_the_closed_launch_and_stop_verbs_without_settings() {
 }
 
 #[test]
-fn contract_words_are_the_platform_vocabulary() {
-    // deployment-action-result.v1 `refusal_reason`: every word used here must
-    // be one of the platform's, spelled as it spells it.
-    const PLATFORM: [&str; 7] = [
-        "stale_generation",
-        "idempotency_conflict",
-        "release_unverified",
-        "receipt_missing",
-        "hardware_incompatible",
-        "not_here",
-        "busy",
-    ];
+fn each_refusal_is_its_own_contract_reason() {
+    // The reasons themselves are the platform's closed list (checked against
+    // the vendored schema in tests/platform_contracts.rs); here, no two
+    // refusals may collapse onto one reason, or the plane could not tell them
+    // apart.
     let ours = [
         Refusal::StaleGeneration {
             running: generation(1),
@@ -395,9 +393,9 @@ fn contract_words_are_the_platform_vocabulary() {
             owner: None,
         },
     ];
-    for r in &ours {
-        assert!(PLATFORM.contains(&r.word()), "{}", r.word());
-    }
+    let reasons: std::collections::BTreeSet<String> =
+        ours.iter().map(|r| format!("{:?}", r.reason())).collect();
+    assert_eq!(reasons.len(), ours.len());
 }
 
 #[test]
@@ -411,10 +409,10 @@ fn names_and_generations_refuse_what_the_contract_refuses() {
 }
 
 impl Step {
-    /// The contract word of a refusal, for assertions.
-    fn word(&self) -> Option<&'static str> {
+    /// The contract reason of a refusal, for assertions.
+    fn reason(&self) -> Option<RefusalReason> {
         match self {
-            Self::Refuse(r) => Some(r.word()),
+            Self::Refuse(r) => Some(r.reason()),
             _ => None,
         }
     }

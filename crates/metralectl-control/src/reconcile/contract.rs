@@ -7,16 +7,18 @@
 //! decision logic moving. The words already match them: a deployment is named
 //! by a DNS label and realised at a generation of at least 1; placement is a
 //! hardware class or an explicit node; a refusal is one of the contract's
-//! closed reasons. The contract types themselves are not linked in: they live
-//! in a crate this public one cannot depend on, so the shared shape is the
-//! words, checked by `contract_words_are_the_platform_vocabulary`.
+//! closed reasons, [`RefusalReason`] in the vendored contract's binding
+//! ([`crate::platform`]).
 
+use crate::platform::action::RefusalReason;
 use metralectl_core::hardware::{HardwareClass, is_dns_label};
 use metralectl_protocol::RecipeId;
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 
 /// A deployment's name: a DNS label, unique within its scope.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
 pub struct DeploymentName(String);
 
 impl DeploymentName {
@@ -41,7 +43,8 @@ impl DeploymentName {
 
 /// A desired generation: 1 when a deployment is created, one more on every
 /// change to what it should run. Zero does not exist.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Generation(NonZeroU64);
 
 impl Generation {
@@ -55,6 +58,19 @@ impl Generation {
     #[must_use]
     pub fn get(self) -> u64 {
         self.0.get()
+    }
+}
+
+impl TryFrom<String> for DeploymentName {
+    type Error = String;
+    fn try_from(s: String) -> Result<Self, String> {
+        Self::parse(&s)
+    }
+}
+
+impl From<DeploymentName> for String {
+    fn from(n: DeploymentName) -> Self {
+        n.0
     }
 }
 
@@ -165,15 +181,15 @@ pub enum Refusal {
 }
 
 impl Refusal {
-    /// The contract's word for this reason.
+    /// The contract's reason for this refusal.
     #[must_use]
-    pub fn word(&self) -> &'static str {
+    pub fn reason(&self) -> RefusalReason {
         match self {
-            Self::StaleGeneration { .. } => "stale_generation",
-            Self::IdempotencyConflict { .. } => "idempotency_conflict",
-            Self::ReleaseUnverified { .. } => "release_unverified",
-            Self::HardwareIncompatible { .. } => "hardware_incompatible",
-            Self::Busy { .. } => "busy",
+            Self::StaleGeneration { .. } => RefusalReason::StaleGeneration,
+            Self::IdempotencyConflict { .. } => RefusalReason::IdempotencyConflict,
+            Self::ReleaseUnverified { .. } => RefusalReason::ReleaseUnverified,
+            Self::HardwareIncompatible { .. } => RefusalReason::HardwareIncompatible,
+            Self::Busy { .. } => RefusalReason::Busy,
         }
     }
 }

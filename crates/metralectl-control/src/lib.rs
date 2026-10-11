@@ -29,6 +29,7 @@ pub mod control;
 mod launch_telemetry;
 pub mod launcher;
 pub mod logs;
+pub mod platform;
 pub mod reconcile;
 
 pub use launch_telemetry::LaunchTelemetry;
