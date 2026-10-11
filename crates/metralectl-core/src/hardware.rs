@@ -9,6 +9,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod capture;
+
 /// A hardware class: the key that placements, compatibility receipts and
 /// release manifests use (`gb10`). A DNS label, as the platform contract
 /// spells it.

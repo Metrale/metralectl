@@ -167,37 +167,21 @@ fn run(args: &[&str]) -> Option<String> {
         .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// `(name, driver_version, count)` of the first GPU.
+/// `(name, driver_version, count)` of the first GPU, each as `nvidia-smi`
+/// answered it.
 pub fn identity() -> Option<(String, String, u32)> {
-    let text = run(&[
-        "--query-gpu=name,driver_version,count",
-        "--format=csv,noheader",
-    ])?;
-    parse_identity(&text)
+    use metralectl_core::hardware::capture::{nvidia_identity_argv, parse_nvidia_identity};
+    let argv = nvidia_identity_argv();
+    let args: Vec<&str> = argv[1..].iter().map(String::as_str).collect();
+    let first = parse_nvidia_identity(&run(&args)?).into_iter().next()?;
+    Some((first.name?, first.driver?, first.count?))
 }
 
-pub fn parse_identity(csv: &str) -> Option<(String, String, u32)> {
-    let mut parts = csv.lines().next()?.split(',').map(str::trim);
-    let name = parts.next()?.to_string();
-    let driver = parts.next()?.to_string();
-    let count = parts.next()?.parse().unwrap_or(1);
-    Some((name, driver, count))
-}
-
-/// The CUDA version the driver header names (`13.0`); empty when unknown.
-pub fn cuda_version() -> String {
+/// The CUDA version the driver banner names (`13.0`); `None` when unknown.
+pub fn cuda_version() -> Option<String> {
     run(&[])
         .as_deref()
-        .and_then(parse_cuda_version)
-        .unwrap_or_default()
-}
-
-pub fn parse_cuda_version(header: &str) -> Option<String> {
-    let i = header.find("CUDA Version:")?;
-    header[i + 13..]
-        .split_whitespace()
-        .next()
-        .map(str::to_owned)
+        .and_then(metralectl_core::hardware::capture::parse_cuda_version)
 }
 
 /// `clocks.max.sm` of the first GPU, MHz.
@@ -322,19 +306,7 @@ mod bench_probe_tests {
     }
 
     #[test]
-    fn identity_cuda_and_clock_ceiling_parse_from_captured_output() {
-        assert_eq!(
-            parse_identity("NVIDIA GB10, 580.126.09, 1\n"),
-            Some(("NVIDIA GB10".into(), "580.126.09".into(), 1))
-        );
-        assert_eq!(parse_identity(""), None);
-        assert_eq!(
-            parse_cuda_version(
-                "| NVIDIA-SMI 580.126.09    Driver Version: 580.126.09    CUDA Version: 13.0     |"
-            ),
-            Some("13.0".into())
-        );
-        assert_eq!(parse_cuda_version("no header"), None);
+    fn the_clock_ceiling_parses_from_captured_output() {
         assert_eq!(parse_clock_max("3003\n"), Some(3003.0));
         assert_eq!(parse_clock_max("[N/A]\n"), None);
         assert_eq!(parse_clock_max("0\n"), None);

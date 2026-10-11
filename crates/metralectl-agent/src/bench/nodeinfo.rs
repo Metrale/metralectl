@@ -90,7 +90,8 @@ pub fn node_info(host: &BenchHost) -> BenchNodeInfo {
         name: gname,
         count,
         driver_version: driver,
-        cuda_version: crate::telemetry::nvidia::cuda_version(),
+        // The wire keeps its documented "empty when unknown" form.
+        cuda_version: crate::telemetry::nvidia::cuda_version().unwrap_or_default(),
         sm_clock_mhz: vitals
             .as_ref()
             .map_or(Metric::Unsupported, |v| v.sm_clock_mhz),

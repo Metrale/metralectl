@@ -26,6 +26,7 @@ pub type BoxFut<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> +
 
 pub mod admission;
 pub mod control;
+pub mod fingerprint;
 mod launch_telemetry;
 pub mod launcher;
 pub mod logs;
