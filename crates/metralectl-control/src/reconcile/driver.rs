@@ -23,19 +23,20 @@ use crate::platform::action::{
 use crate::platform::ids::{InstanceId, NodeId};
 use crate::platform::scalars::{UnixMs, V1};
 use crate::reconcile::contract::Generation;
+use crate::release::VerifiedRelease;
 use metralectl_protocol::RecipeId;
 use metralectl_protocol::msg::AgentError;
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
 /// What a deployment runs, as the host resolved it from the deployment's spec
-/// and its verified release.
+/// and its release, verified (`release::verify`) before anything launches.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
     /// This machine's recipe for the release.
     pub recipe: RecipeId,
-    /// The model the release says that recipe serves.
-    pub model: String,
+    /// The release.
+    pub release: VerifiedRelease,
     /// Where the deployment may run.
     pub placement: Placement,
 }
@@ -49,7 +50,7 @@ pub fn desired_for(action: &DeploymentAction, target: &Target) -> Result<Desired
     let intent = match action.action {
         ActionKind::Apply => Intent::Run {
             recipe: target.recipe.clone(),
-            model: target.model.clone(),
+            model: target.release.model().to_owned(),
             placement: target.placement.clone(),
         },
         ActionKind::Stop => Intent::Stopped,
@@ -80,7 +81,9 @@ pub struct Answer {
 }
 
 /// Converge `desired` on this node, taking at most `max_steps` launches and
-/// stops.
+/// stops. A launch runs `release`; serving anything needs one, and serving
+/// nothing does not, so a `Run` without a release is refused
+/// `release_unverified` before anything is touched.
 ///
 /// # Errors
 /// A launch or stop the control core refused or that failed (a cordoned node,
@@ -90,8 +93,17 @@ pub struct Answer {
 pub async fn converge(
     control: &LocalControl<'_>,
     desired: &Desired,
+    release: Option<&VerifiedRelease>,
     max_steps: NonZeroU32,
 ) -> Result<Answer, AgentError> {
+    if let Intent::Run { model, .. } = &desired.intent
+        && release.is_none_or(|r| r.model() != model)
+    {
+        let refused = ActionOutcome::Refused(Refused {
+            reason: RefusalReason::ReleaseUnverified,
+        });
+        return Ok(answer(refused, desired, &control.workloads().await?));
+    }
     let mut acted = false;
     for _ in 0..=max_steps.get() {
         let workloads = control.workloads().await?;
@@ -116,7 +128,10 @@ pub async fn converge(
                     deployment: desired.deployment.clone(),
                     generation: desired.generation,
                 };
-                let launch_for = LaunchFor { owner: Some(owner) };
+                let launch_for = LaunchFor {
+                    owner: Some(owner),
+                    release: release.cloned(),
+                };
                 control
                     .launch(&recipe, &BTreeMap::new(), launch_for)
                     .await?;
@@ -175,7 +190,7 @@ pub async fn answer_action(
         reason,
     })?;
     let answered = if action.node_id == node {
-        converge(control, &desired, max_steps).await?
+        converge(control, &desired, Some(&target.release), max_steps).await?
     } else {
         let refused = ActionOutcome::Refused(Refused {
             reason: RefusalReason::NotHere,

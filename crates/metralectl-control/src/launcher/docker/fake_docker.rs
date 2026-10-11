@@ -118,6 +118,16 @@ impl FakeDocker {
             .unwrap_or_default()
     }
 
+    /// The image a running container was started from.
+    pub(crate) fn image_of(&self, name: &str) -> Option<String> {
+        let state = self.state.lock().expect("lock");
+        state
+            .containers
+            .iter()
+            .find(|c| c.running && c.name == name)
+            .map(|c| c.image.clone())
+    }
+
     /// The names of the containers that are running now.
     pub(crate) fn running(&self) -> Vec<String> {
         let state = self.state.lock().expect("lock");

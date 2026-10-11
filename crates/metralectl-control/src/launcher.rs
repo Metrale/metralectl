@@ -7,6 +7,7 @@
 
 use crate::platform::ids::InstanceId;
 use crate::reconcile::contract::{Instance, Owner};
+use crate::release::VerifiedRelease;
 use metralectl_core::{Recipe, ScalarValue};
 use metralectl_protocol::msg::{AgentError, RunningLaunch};
 use std::collections::BTreeMap;
@@ -40,6 +41,9 @@ pub struct LaunchFor {
     /// as labels; `None` for a launch outside any deployment (a browser, the
     /// command line).
     pub owner: Option<Owner>,
+    /// The verified release it runs: its image is run by digest in place of
+    /// the recipe's tag. `None` for a launch that names no release.
+    pub release: Option<VerifiedRelease>,
 }
 
 /// One running workload, as the launcher's own state reports it.

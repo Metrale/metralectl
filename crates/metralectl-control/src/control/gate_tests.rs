@@ -106,7 +106,10 @@ async fn a_recipe_declaring_other_hardware_is_refused_before_the_launcher() {
             .launch(
                 &id(NEEDS_GB10),
                 &BTreeMap::new(),
-                crate::launcher::LaunchFor { owner: None },
+                crate::launcher::LaunchFor {
+                    owner: None,
+                    release: None,
+                },
             )
             .await;
         assert!(

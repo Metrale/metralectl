@@ -51,7 +51,10 @@ impl Session<'_> {
         requested: &BTreeMap<String, SettingValue>,
     ) -> Vec<ServerMsg> {
         // A browser launch is outside any deployment.
-        let launch_for = metralectl_control::launcher::LaunchFor { owner: None };
+        let launch_for = metralectl_control::launcher::LaunchFor {
+            owner: None,
+            release: None,
+        };
         match self
             .control()
             .launch(recipe_id, requested, launch_for)

@@ -172,6 +172,11 @@ impl Launcher for DockerLauncher {
         if let Some(owner) = &launch_for.owner {
             plan.docker.labels.extend(idempotent::owner_labels(owner));
         }
+        // A release names its image by content; the recipe's tag could be
+        // moved to other bytes after the release was qualified.
+        if let Some(release) = &launch_for.release {
+            plan.docker.image = release.image().reference();
+        }
 
         // The same guard `metralectl run` applies, because this path has an
         // operator too — they are just in a browser instead of a terminal, and

@@ -52,7 +52,10 @@ fn recipe() -> Recipe {
 }
 
 /// A launch outside any deployment, as the browser and peer paths make.
-const UNOWNED: LaunchFor = LaunchFor { owner: None };
+const UNOWNED: LaunchFor = LaunchFor {
+    owner: None,
+    release: None,
+};
 
 fn launcher(runner: Arc<RecordingRunner>) -> DockerLauncher {
     DockerLauncher::new(runner, host(), &ROOTLESS_V1, Box::new(NvidiaDevices))

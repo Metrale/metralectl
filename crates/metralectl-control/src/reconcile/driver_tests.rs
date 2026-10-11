@@ -14,6 +14,7 @@ use crate::launcher::DockerLauncher;
 use crate::launcher::docker::fake_docker::FakeDocker;
 use crate::platform::ids::IdempotencyKey;
 use crate::reconcile::contract::DeploymentName;
+use crate::release::testing::verified_serving;
 use metralectl_core::docker::profile::{NvidiaDevices, ROOTLESS_V1};
 use metralectl_core::hardware::HardwareClass;
 use metralectl_core::host::{HostSnapshot, PosixUser};
@@ -95,13 +96,25 @@ impl Node {
     /// A launch from the browser: outside any deployment.
     async fn browser_launch(&self, recipe: &str) {
         self.agent()
-            .launch(&rid(recipe), &BTreeMap::new(), LaunchFor { owner: None })
+            .launch(
+                &rid(recipe),
+                &BTreeMap::new(),
+                LaunchFor {
+                    owner: None,
+                    release: None,
+                },
+            )
             .await
             .expect("the browser launches");
     }
 
+    /// Converge with the release a `Run` serves, verified as the host would.
     async fn converge(&self, desired: &Desired) -> Result<Answer, AgentError> {
-        converge(&self.agent(), desired, steps()).await
+        let release = match &desired.intent {
+            Intent::Run { model, .. } => Some(verified_serving(model)),
+            Intent::Stopped => None,
+        };
+        converge(&self.agent(), desired, release.as_ref(), steps()).await
     }
 
     fn label(&self, container: &str, key: &str) -> Option<String> {
@@ -124,23 +137,26 @@ fn generation(n: u64) -> Generation {
     Generation::new(n).expect("non-zero")
 }
 
+fn gb10() -> Placement {
+    Placement::HardwareClass(HardwareClass::parse("gb10").expect("class"))
+}
+
 fn target(recipe: &str, model: &str) -> Target {
     Target {
         recipe: rid(recipe),
-        model: model.to_owned(),
-        placement: Placement::HardwareClass(HardwareClass::parse("gb10").expect("class")),
+        release: verified_serving(model),
+        placement: gb10(),
     }
 }
 
 fn run(recipe: &str, model: &str, g: u64) -> Desired {
-    let t = target(recipe, model);
     Desired {
         deployment: DeploymentName::parse("chat").expect("label"),
         generation: generation(g),
         intent: Intent::Run {
-            recipe: t.recipe,
-            model: t.model,
-            placement: t.placement,
+            recipe: rid(recipe),
+            model: model.to_owned(),
+            placement: gb10(),
         },
     }
 }
@@ -174,6 +190,52 @@ async fn a_fresh_apply_launches_once_and_the_container_records_its_owner() {
     assert_eq!(node.label(&container, GENERATION).as_deref(), Some("1"));
     let seen = node.agent().workloads().await.expect("observes");
     assert_eq!(answer.instances, vec![seen[0].id]);
+}
+
+/// A release's image runs by its digest, never the recipe's tag. Sabotage:
+/// leaving the recipe's image in place runs `:latest`.
+#[tokio::test]
+async fn the_release_image_runs_by_digest() {
+    let node = Node::new();
+    node.converge(&run_a(1)).await.expect("converges");
+    let release = verified_serving("Qwen/Qwen3.6-27B-FP8");
+    assert_eq!(
+        node.daemon.image_of(&format!("metrale-{A}")),
+        Some(release.image().reference())
+    );
+    assert!(release.image().reference().contains("@sha256:"));
+}
+
+/// Nothing is served without a verified release, and a release for another
+/// model is no release for this one. Sabotage: launching on the recipe alone
+/// when no release came runs an unverified image.
+#[tokio::test]
+async fn serving_without_a_matching_verified_release_is_refused_untouched() {
+    let node = Node::new();
+    let unverified = ActionOutcome::Refused(Refused {
+        reason: RefusalReason::ReleaseUnverified,
+    });
+    let none = converge(&node.agent(), &run_a(1), None, steps()).await;
+    assert_eq!(none.expect("answers").outcome, unverified);
+    let other = verified_serving("Qwen/Qwen3.6-35B-A3B-FP8");
+    let wrong = converge(&node.agent(), &run_a(1), Some(&other), steps()).await;
+    assert_eq!(wrong.expect("answers").outcome, unverified);
+    assert_eq!(node.daemon.runs(), 0);
+    // The control core holds the same line for any caller.
+    let err = node
+        .agent()
+        .launch(
+            &rid(A),
+            &BTreeMap::new(),
+            LaunchFor {
+                owner: None,
+                release: Some(other),
+            },
+        )
+        .await
+        .expect_err("another model's release");
+    assert!(matches!(err, AgentError::NotLaunchable { .. }), "{err:?}");
+    assert_eq!(node.daemon.runs(), 0);
 }
 
 /// The same apply again, resent after a lost acknowledgement, or arriving at
@@ -292,7 +354,14 @@ async fn the_launcher_does_not_adopt_another_deployments_container() {
     };
     let err = node
         .agent()
-        .launch(&rid(A), &BTreeMap::new(), LaunchFor { owner: Some(other) })
+        .launch(
+            &rid(A),
+            &BTreeMap::new(),
+            LaunchFor {
+                owner: Some(other),
+                release: None,
+            },
+        )
         .await
         .expect_err("not adopted");
     assert!(matches!(err, AgentError::AlreadyRunning { .. }), "{err:?}");

@@ -243,7 +243,14 @@ async fn a_remote_override_above_the_gb10_caution_is_refused_not_warned() {
         metralectl_protocol::settings::SettingValue::Float(0.95),
     );
     let err = c
-        .launch(&id(REAL), &req, crate::launcher::LaunchFor { owner: None })
+        .launch(
+            &id(REAL),
+            &req,
+            crate::launcher::LaunchFor {
+                owner: None,
+                release: None,
+            },
+        )
         .await
         .expect_err("must refuse");
     // Structured, not prose: `BadSettings`'s Display is a summary ("1
@@ -279,7 +286,14 @@ async fn the_same_value_is_untouched_on_hardware_the_caution_does_not_claim() {
     // Reaches the launcher — it may still fail there for unrelated reasons,
     // but it must not be refused by the GB10 caution.
     let out = c
-        .launch(&id(REAL), &req, crate::launcher::LaunchFor { owner: None })
+        .launch(
+            &id(REAL),
+            &req,
+            crate::launcher::LaunchFor {
+                owner: None,
+                release: None,
+            },
+        )
         .await;
     if let Err(metralectl_protocol::msg::AgentError::BadSettings { errors }) = &out {
         assert!(

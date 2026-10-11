@@ -153,6 +153,21 @@ impl LocalControl<'_> {
                 reason: format!("this machine cannot run it: {why}"),
             });
         }
+        // A release is verified against the model this machine's recipe
+        // serves; launching it through a recipe for another model would run
+        // the release's image on weights it was never qualified with.
+        if let Some(release) = &launch_for.release
+            && release.model() != recipe.model
+        {
+            return Err(AgentError::NotLaunchable {
+                recipe: recipe_id.clone(),
+                reason: format!(
+                    "the release serves {}; this recipe serves {}",
+                    release.model(),
+                    recipe.model
+                ),
+            });
+        }
         let overrides = check_settings(requested)?;
         // A caution the CLI prints and proceeds past is worth nothing here:
         // this path is driven by the browser and by a granted remote
@@ -300,7 +315,10 @@ impl LocalControl<'_> {
             ControlReq::Launch { recipe, settings } => {
                 // A control request is a launch outside any deployment; only
                 // the reconciler launches for one.
-                let launch_for = LaunchFor { owner: None };
+                let launch_for = LaunchFor {
+                    owner: None,
+                    release: None,
+                };
                 let started = self.launch(&recipe, &settings, launch_for).await?;
                 Ok(ControlRep::Started {
                     recipe,
