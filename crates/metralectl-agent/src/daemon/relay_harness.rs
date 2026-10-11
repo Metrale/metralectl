@@ -10,13 +10,13 @@
 //! `relay_grant_tests.rs` drive the real `ControlDriver` through this.
 
 use super::peer_serve::{PeerServe, serve_peer_connection};
-use crate::control::ControlHost;
 use crate::fleet::LocalFleet;
 use crate::identity::{Identity, PinStore};
-use crate::launcher::{Launcher, RecordingLauncher};
 use crate::peer::link::{SelfIntro, query};
 use crate::peer::tls::{PinnedPeerVerifier, server_config};
 use crate::peer::wire::{PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame};
+use metralectl_control::control::ControlHost;
+use metralectl_control::launcher::{Launcher, RecordingLauncher};
 use metralectl_core::registry::RegistrySet;
 use metralectl_protocol::fleet::{
     DisplayName, Launchability, LinkClass, NodeAddress, NodeId, VouchedPeer,
@@ -250,7 +250,7 @@ pub(super) fn driver(a: &TestAgent, port: u16) -> crate::peer::control::ControlD
         a.pins.clone(),
         Arc::clone(&a.fleet),
         port,
-        crate::control::retry::RetryBudget {
+        metralectl_control::control::retry::RetryBudget {
             attempts: std::num::NonZeroU32::MIN,
             pause: Duration::ZERO,
         },

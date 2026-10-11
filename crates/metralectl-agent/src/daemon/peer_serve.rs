@@ -15,11 +15,11 @@
 //! only frame it ever writes onward is the terminal `Control` — which itself
 //! cannot name anywhere further to go.
 
-use crate::control::{ControlHost, LocalControl};
 use crate::identity::{Identity, PinStore};
 use crate::peer::control::send_control;
 use crate::peer::wire::{PeerFrame, read_frame, write_frame};
 use crate::rank::RankService;
+use metralectl_control::control::{ControlHost, LocalControl};
 use metralectl_protocol::fleet::NodeId;
 use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
 use std::sync::Arc;

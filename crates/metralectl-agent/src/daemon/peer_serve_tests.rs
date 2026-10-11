@@ -9,12 +9,12 @@
 //! this file proves every refusal that must happen BEFORE any dial.
 
 use super::peer_serve::{PeerServe, serve_peer_connection};
-use crate::control::ControlHost;
 use crate::identity::{Identity, PinStore};
-use crate::launcher::{Launcher, RecordingLauncher};
 use crate::peer::wire::{
     PEER_PROTOCOL_MAX, PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame,
 };
+use metralectl_control::control::ControlHost;
+use metralectl_control::launcher::{Launcher, RecordingLauncher};
 use metralectl_core::registry::RegistrySet;
 use metralectl_protocol::fleet::{DisplayName, Launchability, NodeId};
 use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
@@ -55,14 +55,14 @@ impl Launcher for SharedLauncher {
         &self,
         recipe: &metralectl_core::Recipe,
         o: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Preview, AgentError> {
+    ) -> Result<metralectl_control::launcher::Preview, AgentError> {
         self.0.preview(recipe, o)
     }
     fn launch(
         &self,
         recipe: &metralectl_core::Recipe,
         o: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Started, AgentError> {
+    ) -> Result<metralectl_control::launcher::Started, AgentError> {
         self.0.launch(recipe, o)
     }
     fn stop(&self, recipe: &str) -> Result<(), AgentError> {
@@ -267,7 +267,7 @@ async fn a_granted_sender_executes_through_the_local_core() {
         r.launcher
             .calls()
             .iter()
-            .any(|c| matches!(c, crate::launcher::Call::Running)),
+            .any(|c| matches!(c, metralectl_control::launcher::Call::Running)),
         "the status must have come from the launcher"
     );
     drop(c);

@@ -3,7 +3,7 @@
 //! Transport-level tests, over a real socket on an ephemeral loopback port.
 
 use super::*;
-use crate::launcher::RecordingLauncher;
+use metralectl_control::launcher::RecordingLauncher;
 use std::sync::Arc;
 
 const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -139,22 +139,22 @@ struct SleepyLauncher {
     delay: std::time::Duration,
 }
 
-impl crate::launcher::Launcher for SleepyLauncher {
+impl metralectl_control::launcher::Launcher for SleepyLauncher {
     fn preview(
         &self,
         _: &metralectl_core::Recipe,
         _: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Preview, metralectl_protocol::msg::AgentError> {
+    ) -> Result<metralectl_control::launcher::Preview, metralectl_protocol::msg::AgentError> {
         Err(metralectl_protocol::msg::AgentError::NotReady)
     }
     fn launch(
         &self,
         _: &metralectl_core::Recipe,
         _: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Started, metralectl_protocol::msg::AgentError> {
+    ) -> Result<metralectl_control::launcher::Started, metralectl_protocol::msg::AgentError> {
         // Exactly what the real launcher does to the calling thread.
         std::thread::sleep(self.delay);
-        Ok(crate::launcher::Started {
+        Ok(metralectl_control::launcher::Started {
             container: "metrale-sleepy".to_owned(),
             endpoint: None,
         })

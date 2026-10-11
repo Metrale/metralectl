@@ -832,6 +832,7 @@ dependencies = [
  "clap",
  "hex",
  "metralectl-agent",
+ "metralectl-control",
  "metralectl-core",
  "metralectl-protocol",
  "rustix",
@@ -856,6 +857,7 @@ dependencies = [
  "hex",
  "libc",
  "mdns-sd",
+ "metralectl-control",
  "metralectl-core",
  "metralectl-protocol",
  "rcgen",
@@ -872,6 +874,18 @@ dependencies = [
  "tokio-rustls",
  "windows-sys 0.59.0",
  "zeroize",
+]
+
+[[package]]
+name = "metralectl-control"
+version = "0.1.1"
+dependencies = [
+ "anyhow",
+ "metralectl-core",
+ "metralectl-protocol",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

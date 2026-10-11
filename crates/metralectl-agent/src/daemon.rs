@@ -112,7 +112,7 @@ pub struct PeerWork {
     pub accelerator: String,
     /// The control core a peer's terminal `Control` executes through — the
     /// same seven verbs, the same validation, as this machine's own browser.
-    pub control: Arc<crate::control::ControlHost>,
+    pub control: Arc<metralectl_control::control::ControlHost>,
     /// The bench host, when this agent has a `bench.yaml`.
     pub bench: Option<Arc<crate::bench::BenchHost>>,
     /// Why bench is off, otherwise.

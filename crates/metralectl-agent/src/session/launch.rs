@@ -8,7 +8,7 @@
 //! those reach another machine over the authenticated peer channel. Keeping
 //! them apart is what keeps each surface small enough to read in one sitting.
 //!
-//! Every verb here delegates to [`crate::control::LocalControl`] — the same
+//! Every verb here delegates to [`metralectl_control::control::LocalControl`] — the same
 //! core the peer channel's terminal `Control` handler executes through — and
 //! keeps for itself only what is session-shaped: the correlation `id`, the
 //! `ServerMsg` envelope, and the denied-attempt log.

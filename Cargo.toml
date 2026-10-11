@@ -9,7 +9,7 @@
 
 [workspace]
 resolver = "3"
-members = ["crates/metralectl-core", "crates/metralectl", "crates/metralectl-protocol", "crates/metralectl-agent"]
+members = ["crates/metralectl-core", "crates/metralectl", "crates/metralectl-protocol", "crates/metralectl-control", "crates/metralectl-agent"]
 
 [workspace.package]
 # NOTE: version is deliberately NOT inherited. release-please's cargo-workspace
@@ -40,6 +40,7 @@ sha2 = "0.11"
 metrale-recipes-data = { path = ".", version = "0.1.1" } # x-release-please-version
 metralectl-core = { path = "crates/metralectl-core", version = "0.1.1" } # x-release-please-version
 metralectl-protocol = { path = "crates/metralectl-protocol", version = "0.1.1" } # x-release-please-version
+metralectl-control = { path = "crates/metralectl-control", version = "0.1.1" } # x-release-please-version
 metralectl-agent = { path = "crates/metralectl-agent", version = "0.1.1" } # x-release-please-version
 anyhow = "1"
 include_dir = "0.7"

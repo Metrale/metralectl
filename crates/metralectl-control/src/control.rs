@@ -10,9 +10,9 @@
 //! except through the injected [`Launcher`] and [`LaunchTelemetry`] ports
 //! (SBIO), so both callers stay testable without a container runtime.
 
+use crate::LaunchTelemetry;
 use crate::launcher::{Launcher, Preview, Started};
 use crate::logs::LogTail;
-use crate::session::LaunchTelemetry;
 use metralectl_core::registry::{RecipeRef, RegistrySet};
 use metralectl_core::settings;
 use metralectl_protocol::RecipeId;
@@ -25,10 +25,9 @@ use std::collections::BTreeMap;
 /// The seven control operations, over borrowed dependencies.
 ///
 /// Borrowed rather than owned so the session can build one per call from its
-/// existing [`SessionDeps`] without restructuring, and a daemon-side owner
-/// ([`ControlHost`]) can hand the identical core to the peer channel.
-///
-/// [`SessionDeps`]: crate::session::SessionDeps
+/// existing `SessionDeps` (metralectl-agent) without restructuring, and a
+/// daemon-side owner ([`ControlHost`]) can hand the identical core to the peer
+/// channel.
 pub struct LocalControl<'a> {
     /// The recipe inventory.
     pub registry: &'a RegistrySet,
@@ -326,12 +325,10 @@ fn to_wire(v: &metralectl_core::ScalarValue) -> SettingValue {
 
 /// Owns what a [`LocalControl`] borrows, for the caller that has no session.
 ///
-/// The browser session borrows its dependencies from [`AgentState`]; the
-/// daemon's peer listener outlives any session and needs its own. This
-/// bundles them so the peer channel cannot be wired with half the deps —
-/// every field is required at construction (PCND).
-///
-/// [`AgentState`]: crate::server::AgentState
+/// The browser session borrows its dependencies from `AgentState`
+/// (metralectl-agent); the daemon's peer listener outlives any session and
+/// needs its own. This bundles them so the peer channel cannot be wired with
+/// half the deps — every field is required at construction (PCND).
 pub struct ControlHost {
     registry: RegistrySet,
     launcher: std::sync::Arc<dyn Launcher>,

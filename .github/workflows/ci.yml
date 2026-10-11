@@ -53,6 +53,14 @@ jobs:
       # recipe-only pull requests a real check rather than a wasted one.
       - run: cargo test --workspace --locked
 
+  control-deps:
+    name: metralectl-control has no network surface
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: bash scripts/check-control-deps.sh
+
   msrv:
     name: msrv
     runs-on: ubuntu-24.04

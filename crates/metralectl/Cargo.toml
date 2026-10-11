@@ -16,6 +16,7 @@ path = "src/main.rs"
 
 [dependencies]
 metralectl-agent.workspace = true
+metralectl-control.workspace = true
 metralectl-core.workspace = true
 anyhow.workspace = true
 clap = { version = "4", features = ["derive"] }

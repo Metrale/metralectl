@@ -11,9 +11,9 @@
 
 use super::link::{self, DIAL_TIMEOUT, SelfIntro, exchange_hello};
 use super::wire::{PEER_PROTOCOL_MAX, PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame};
-use crate::control::retry::{Attempt, RetryBudget, drive};
 use crate::identity::{Identity, PinStore};
 use anyhow::{Result, bail};
+use metralectl_control::control::retry::{Attempt, RetryBudget, drive};
 use metralectl_protocol::fleet::NodeId;
 use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
 use std::net::SocketAddr;
@@ -153,7 +153,7 @@ where
 ///
 /// [`ControlRelay`]: crate::session::ControlRelay
 /// [`LocalFleet::plan_control_route`]: crate::fleet::LocalFleet::plan_control_route
-/// [`ControlRun`]: crate::control::retry::ControlRun
+/// [`ControlRun`]: metralectl_control::control::retry::ControlRun
 pub struct ControlDriver {
     identity: Arc<Identity>,
     pins: PinStore,

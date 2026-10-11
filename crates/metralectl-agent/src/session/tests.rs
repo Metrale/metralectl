@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
-use crate::launcher::{Call, RecordingLauncher};
+use metralectl_control::launcher::{Call, RecordingLauncher};
 use metralectl_protocol::RecipeId;
 use metralectl_protocol::settings::{SettingError, SettingValue};
 use std::collections::BTreeMap;

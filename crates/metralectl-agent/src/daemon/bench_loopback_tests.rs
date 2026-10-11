@@ -10,9 +10,9 @@
 
 use super::relay_harness::*;
 use crate::bench::{BenchConfig, BenchHost};
-use crate::launcher::Launcher;
 use crate::peer::bench::{AttachRefused, DialError, attach, send_bench};
 use crate::peer::link::SelfIntro;
+use metralectl_control::launcher::Launcher;
 use metralectl_protocol::msg::bench::{GateId, JobKey, JobState, Sha};
 use metralectl_protocol::msg::bench_event::{EventKind, Outcome};
 use metralectl_protocol::msg::{BenchRefusal, BenchRep, BenchReq};

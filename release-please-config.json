@@ -11,6 +11,7 @@
     },
     "crates/metralectl-protocol": {},
     "crates/metralectl-core": {},
+    "crates/metralectl-control": {},
     "crates/metralectl-agent": {},
     "crates/metralectl": {}
   },
@@ -23,6 +24,7 @@
         "metrale-recipes-data",
         "metralectl-protocol",
         "metralectl-core",
+        "metralectl-control",
         "metralectl-agent",
         "metralectl"
       ]

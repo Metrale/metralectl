@@ -117,11 +117,9 @@ async fn a_vouched_launch_rides_the_relay_end_to_end() {
         .expect("routable");
     assert!(matches!(rep, ControlRep::Stopped { .. }));
     assert!(
-        target
-            .launcher
-            .calls()
-            .iter()
-            .any(|c| matches!(c, crate::launcher::Call::Stop(r) if r == recipe().as_str())),
+        target.launcher.calls().iter().any(
+            |c| matches!(c, metralectl_control::launcher::Call::Stop(r) if r == recipe().as_str())
+        ),
         "the stop resolved a recipe, never a container"
     );
 }

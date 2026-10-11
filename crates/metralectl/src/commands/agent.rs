@@ -5,9 +5,9 @@
 use crate::cli::AgentRunArgs;
 use crate::hostinfo;
 use anyhow::{Context, Result};
-use metralectl_agent::launcher::DockerLauncher;
 use metralectl_agent::server::AgentState;
 use metralectl_agent::token;
+use metralectl_control::launcher::DockerLauncher;
 use metralectl_core::docker::profile::{NvidiaDevices, ROOTLESS_V1};
 use metralectl_core::io::{ProcessRunner, StdProcessRunner};
 use std::sync::Arc;
@@ -15,8 +15,8 @@ use std::sync::Arc;
 /// How hard a control request to another machine is tried: three sends, two
 /// seconds apart. A lost `Launch` spends one of them on the `Status` read that
 /// must precede a second `Launch`, so it is sent at most twice.
-const CONTROL_RETRY: metralectl_agent::control::retry::RetryBudget =
-    metralectl_agent::control::retry::RetryBudget {
+const CONTROL_RETRY: metralectl_control::control::retry::RetryBudget =
+    metralectl_control::control::retry::RetryBudget {
         attempts: std::num::NonZeroU32::new(3).expect("three is non-zero"),
         pause: std::time::Duration::from_secs(2),
     };
@@ -243,7 +243,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
     // only holds between callers that share it — a browser launch and a
     // relayed one racing through two instances could both find the recipe
     // not running and both start it.
-    let launcher: Arc<dyn metralectl_agent::launcher::Launcher> = Arc::new(DockerLauncher::new(
+    let launcher: Arc<dyn metralectl_control::launcher::Launcher> = Arc::new(DockerLauncher::new(
         Arc::clone(&runner),
         hostinfo::snapshot()?,
         &ROOTLESS_V1,
@@ -253,7 +253,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
     // The peer channel's control core. Its own telemetry instance, because
     // the listener outlives any session and cannot borrow from `AgentState`
     // — the checks are identical because both are the one `LocalControl`.
-    let control_host = Arc::new(metralectl_agent::control::ControlHost::new(
+    let control_host = Arc::new(metralectl_control::control::ControlHost::new(
         crate::commands::registry_set()?,
         Arc::clone(&launcher),
         Some(Box::new(crate::launchtelemetry::LocalLaunchTelemetry::new(

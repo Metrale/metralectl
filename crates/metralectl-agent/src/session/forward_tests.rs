@@ -326,7 +326,7 @@ async fn a_verb_aimed_at_this_machine_by_id_runs_locally_and_never_dials() {
         f.launcher
             .calls()
             .iter()
-            .any(|c| matches!(c, crate::launcher::Call::Running)),
+            .any(|c| matches!(c, metralectl_control::launcher::Call::Running)),
         "the local launcher answered"
     );
 }

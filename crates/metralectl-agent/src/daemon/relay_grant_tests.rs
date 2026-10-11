@@ -5,8 +5,8 @@
 //! `relay_tests.rs`).
 
 use super::relay_harness::*;
-use crate::launcher::Launcher;
 use crate::session::ControlRelay as _;
+use metralectl_control::launcher::Launcher;
 use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -264,21 +264,21 @@ impl Launcher for SlowFirstLaunch {
         &self,
         _: &metralectl_core::Recipe,
         _: &BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Preview, AgentError> {
+    ) -> Result<metralectl_control::launcher::Preview, AgentError> {
         Err(AgentError::NotReady)
     }
     fn launch(
         &self,
         _: &metralectl_core::Recipe,
         _: &BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Started, AgentError> {
+    ) -> Result<metralectl_control::launcher::Started, AgentError> {
         let _held = self.gate.lock().expect("gate");
         if !self.running.load(Ordering::SeqCst) {
             self.starts.fetch_add(1, Ordering::SeqCst);
             std::thread::sleep(self.delay);
             self.running.store(true, Ordering::SeqCst);
         }
-        Ok(crate::launcher::Started {
+        Ok(metralectl_control::launcher::Started {
             container: "metrale-slow".to_owned(),
             endpoint: None,
         })
@@ -335,7 +335,7 @@ async fn a_retried_launch_after_a_lost_reply_returns_the_first_not_a_second() {
         &mut target,
         port,
         Duration::from_secs(5),
-        Arc::clone(&launcher) as Arc<dyn crate::launcher::Launcher>,
+        Arc::clone(&launcher) as Arc<dyn metralectl_control::launcher::Launcher>,
     )
     .await;
     poll(&relay, &target).await;

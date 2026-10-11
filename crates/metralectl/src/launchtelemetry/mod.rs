@@ -10,8 +10,8 @@
 //! be wrong.
 
 use metralectl_agent::launchstats::LaunchSampler;
-use metralectl_agent::logs::{LogTail, sanitize};
-use metralectl_agent::session::LaunchTelemetry;
+use metralectl_control::LaunchTelemetry;
+use metralectl_control::logs::{LogTail, sanitize};
 use metralectl_core::docker::translate::LABEL_RECIPE;
 use metralectl_core::io::ProcessRunner;
 use metralectl_protocol::RecipeId;
