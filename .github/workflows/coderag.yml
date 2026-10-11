@@ -1,0 +1,285 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+name: CodeRAG
+
+# Builds the metralectl "Ask the codebase" corpora. Every merge to main that
+# touches code or docs chunks + embeds what changed (incremental against the
+# previously published corpus, so steady state embeds only what moved) and
+# publishes self-verifying lattice-jsonl corpora -- gzip + metadata -- that a
+# browser can load into an in-browser lattice-db.
+#
+# One corpus per source, because GitHub rejects any pushed file over 100 MB:
+#   metralectl-coderag   crates/, src/, scripts/ and the launch recipes
+#   metralectl-docs      the root *.md, docs/ and recipes/README.md
+#
+# Stable URLs this produces (no TTL, fetchable directly from the browser):
+#   https://metrale.github.io/metralectl/coderag/<corpus>.jsonl.gz
+#   https://metrale.github.io/metralectl/coderag/<corpus>.jsonl.meta.json
+#   https://metrale.github.io/metralectl/coderag/SOURCES.md
+#
+# Why gh-pages and not the alternatives: GitHub Pages serves with
+# `Access-Control-Allow-Origin: *`, so a site can fetch the corpus cross-origin.
+# Release assets send no CORS headers, and workflow artifacts are auth-only
+# downloads capped at 90 days -- neither can back an anonymous browser fetch.
+# The 30-day artifacts below are CI copies for inspection, not the serving path.
+#
+# One-time prerequisite (repo settings, not automatable from here): after the
+# first run has created the `gh-pages` branch, Settings -> Pages -> "Deploy from
+# a branch" -> branch `gh-pages`, folder `/ (root)`. Until that is enabled the
+# branch updates but nothing is served, and every run re-embeds from scratch
+# because the previous-corpus URLs below 404.
+#
+# The embed model is the ORG variable OPENROUTER_EMBED_MODEL, never a literal
+# here: free-tier ids rotate without notice and a second copy of the id is the
+# thing that drifts.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/**'
+      - 'src/**'
+      - 'scripts/**'
+      - 'recipes/**'
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/coderag.yml'
+  workflow_dispatch:
+
+# Two corpus publishes must never race the gh-pages force-push; a superseded
+# run's corpus is worthless the moment a newer main exists, so cancel it.
+concurrency:
+  group: coderag-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PAGES_BASE: https://metrale.github.io/metralectl/coderag
+  EMBEDDING_ENDPOINT: https://openrouter.ai/api/v1
+  # 95 MiB. GitHub rejects any pushed file over 100 MB; fail here with the real
+  # number instead of dying inside git push with an LFS hint.
+  SIZE_CAP_BYTES: '99614720'
+  # A lattice-server release the action downloads and sha256-verifies.
+  LATTICE_VERSION: v0.3.3
+  VECTOR_PRECISION: '4'
+  # OPENROUTER_API_KEY_FREE rides the free tier, and a merge-time batch job has
+  # no latency SLO; the two build jobs run one after another for the same reason.
+  REQUEST_INTERVAL_MS: '3000'
+  # The embedder rejects inputs over 8192 tokens; capping chunks at 8 192 BYTES
+  # guarantees <= 8 192 tokens even at the 1-byte-per-token worst case.
+  MAX_CHUNK_BYTES: '8192'
+  CODE_CHUNK_LINES: '150'
+  CODE_CHUNK_OVERLAP: '10'
+  PROSE_CHUNK_LINES: '40'
+  PROSE_CHUNK_OVERLAP: '5'
+
+jobs:
+  config:
+    name: Read the model SSOT
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      embed_model: ${{ steps.ssot.outputs.embed_model }}
+    steps:
+      - name: Require the org variable
+        id: ssot
+        env:
+          EMBED_MODEL: ${{ vars.OPENROUTER_EMBED_MODEL }}
+        # An unset org variable fails here instead of reaching the action as an
+        # empty embedding-model.
+        run: |
+          set -euo pipefail
+          [ -n "$EMBED_MODEL" ] || { echo "::error::org variable OPENROUTER_EMBED_MODEL is unset"; exit 1; }
+          echo "embed_model=${EMBED_MODEL}" >> "$GITHUB_OUTPUT"
+
+  code:
+    name: Code corpus
+    needs: config
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      status: ${{ steps.status.outputs.value }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build corpus (incremental against the published one)
+        id: rag
+        # A corpus is DERIVED data. If the embedder is rate limited, a chunk
+        # trips a provider limit, or verification finds a real problem, the
+        # right outcome is a loud warning and yesterday's corpus staying up,
+        # not a red main that blocks unrelated work. Every downstream step is
+        # gated on this one's outcome and the job concludes green either way.
+        continue-on-error: true
+        uses: Avarok-Cybersecurity/AutoRepoRAG@dff770896c2c0f9fe0cfaf26ef7f70a75251ab20 # v2.0.0
+        with:
+          collection: metralectl-coderag
+          # output-name is a basename: the action writes <name>.jsonl,
+          # <name>.jsonl.gz and <name>.meta.json. The ".jsonl" suffix makes the
+          # metadata file <base>.jsonl.meta.json, the name a site preflight
+          # fetches; coderag-stage.sh renames the doubled gz.
+          output-name: metralectl-coderag.jsonl
+          paths: |
+            crates/**/*.rs
+            src/**/*.rs
+            scripts/**/*.{py,sh,ps1}
+            recipes/**/*.yaml
+          exclude: |
+            **/target/**
+          chunk-lines: ${{ env.CODE_CHUNK_LINES }}
+          chunk-overlap: ${{ env.CODE_CHUNK_OVERLAP }}
+          max-chunk-bytes: ${{ env.MAX_CHUNK_BYTES }}
+          vector-precision: ${{ env.VECTOR_PRECISION }}
+          embedding-endpoint: ${{ env.EMBEDDING_ENDPOINT }}
+          embedding-model: ${{ needs.config.outputs.embed_model }}
+          embedding-api-key: ${{ secrets.OPENROUTER_API_KEY_FREE }}
+          # The first run 404s here -> the action warns and does a full embed.
+          # Every later run reuses vectors for unchanged chunks by chunk_hash.
+          previous-corpus-url: ${{ env.PAGES_BASE }}/metralectl-coderag.jsonl.gz
+          previous-corpus-meta-url: ${{ env.PAGES_BASE }}/metralectl-coderag.jsonl.meta.json
+          lattice-version: ${{ env.LATTICE_VERSION }}
+          request-interval-ms: ${{ env.REQUEST_INTERVAL_MS }}
+          generate-website-chat: 'false'
+
+      - name: Name the files as published
+        if: steps.rag.outcome == 'success'
+        env:
+          GZ: ${{ steps.rag.outputs.corpus-gz-file }}
+          META: ${{ steps.rag.outputs.metadata-file }}
+        run: bash scripts/coderag-stage.sh metralectl-coderag "$GZ" "$META" coderag-stage
+
+      - name: Upload CI copy (30-day artifact)
+        if: steps.rag.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: metralectl-coderag
+          path: coderag-stage/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Record the outcome
+        id: status
+        if: always()
+        env:
+          BUILD: ${{ steps.rag.outcome }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$BUILD" = success ]; then
+            echo "value=built" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=failed" >> "$GITHUB_OUTPUT"
+            echo "::warning::CodeRAG code corpus build did not succeed. The published corpus is unchanged. See the build step log."
+            echo "### CodeRAG code corpus NOT refreshed" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The build step failed at \`$SHA\`. The previously published corpus stays live." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  docs:
+    name: Docs corpus
+    needs: [config, code]
+    # Runs whether or not `code` succeeded: one failed corpus must not hold
+    # back the other. Only a failed `config` (no model) stops both.
+    if: ${{ !cancelled() && needs.config.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      status: ${{ steps.status.outputs.value }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build corpus (incremental against the published one)
+        id: rag
+        continue-on-error: true
+        uses: Avarok-Cybersecurity/AutoRepoRAG@dff770896c2c0f9fe0cfaf26ef7f70a75251ab20 # v2.0.0
+        with:
+          collection: metralectl-docs
+          output-name: metralectl-docs.jsonl
+          paths: |
+            *.md
+            docs/**/*.md
+            recipes/README.md
+          chunk-lines: ${{ env.PROSE_CHUNK_LINES }}
+          chunk-overlap: ${{ env.PROSE_CHUNK_OVERLAP }}
+          max-chunk-bytes: ${{ env.MAX_CHUNK_BYTES }}
+          vector-precision: ${{ env.VECTOR_PRECISION }}
+          embedding-endpoint: ${{ env.EMBEDDING_ENDPOINT }}
+          embedding-model: ${{ needs.config.outputs.embed_model }}
+          embedding-api-key: ${{ secrets.OPENROUTER_API_KEY_FREE }}
+          previous-corpus-url: ${{ env.PAGES_BASE }}/metralectl-docs.jsonl.gz
+          previous-corpus-meta-url: ${{ env.PAGES_BASE }}/metralectl-docs.jsonl.meta.json
+          lattice-version: ${{ env.LATTICE_VERSION }}
+          request-interval-ms: ${{ env.REQUEST_INTERVAL_MS }}
+          generate-website-chat: 'false'
+
+      - name: Name the files as published
+        if: steps.rag.outcome == 'success'
+        env:
+          GZ: ${{ steps.rag.outputs.corpus-gz-file }}
+          META: ${{ steps.rag.outputs.metadata-file }}
+        run: bash scripts/coderag-stage.sh metralectl-docs "$GZ" "$META" coderag-stage
+
+      - name: Upload CI copy (30-day artifact)
+        if: steps.rag.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: metralectl-docs
+          path: coderag-stage/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Record the outcome
+        id: status
+        if: always()
+        env:
+          BUILD: ${{ steps.rag.outcome }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$BUILD" = success ]; then
+            echo "value=built" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=failed" >> "$GITHUB_OUTPUT"
+            echo "::warning::CodeRAG docs corpus build did not succeed. The published corpus is unchanged. See the build step log."
+            echo "### CodeRAG docs corpus NOT refreshed" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "The build step failed at \`$SHA\`. The previously published corpus stays live." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    name: Publish to gh-pages
+    needs: [config, code, docs]
+    # Only main publishes: a dispatch from a branch validates the build and
+    # stops. Nothing to publish when no corpus was built this run.
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && needs.config.result == 'success' && contains(needs.*.outputs.status, 'built') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: scripts
+          persist-credentials: false
+
+      # Every artifact of this run is a corpus (names are the corpus bases), so
+      # the glob needs no list that could drift from the jobs above.
+      - name: Download the corpora built in this run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: '*'
+          merge-multiple: true
+          path: incoming
+
+      # Orphan single-commit branch: gh-pages history never grows, this
+      # workflow is its sole owner, and the corpus URLs are stable forever. The
+      # script starts from what gh-pages holds now, so a corpus that failed or
+      # came out over the size cap keeps its last good copy.
+      - name: Publish all corpora as one gh-pages commit
+        env:
+          CORPORA: >-
+            metralectl-coderag:${{ needs.code.outputs.status || 'failed' }}
+            metralectl-docs:${{ needs.docs.outputs.status || 'failed' }}
+          INCOMING: incoming
+          PUBLISH_REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: bash scripts/coderag-publish.sh
