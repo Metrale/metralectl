@@ -66,11 +66,12 @@ fn a_discrete_host_is_measured_not_unified_and_counted_per_kind() {
     assert_eq!(c.fingerprint(), Err(vec!["hardware_class".to_owned()]));
 }
 
-/// Whatever a tool did not answer is named, never zeroed. Sabotage: a
-/// default (0 bytes, an empty model, `false`) in place of an absent value
+/// What identifies the hardware is required: without it no document is
+/// made, and each missing identifying field is named. Sabotage: a default (an
+/// empty class, `false` for the unified flag) in place of an absent value
 /// produces a document here.
 #[test]
-fn every_unanswered_field_is_named_and_no_document_is_made() {
+fn a_machine_without_its_identity_makes_no_document() {
     let c = capture(&ToolOutputs {
         cpu_arch: "riscv64".into(),
         ..ToolOutputs::default()
@@ -83,12 +84,7 @@ fn every_unanswered_field_is_named_and_no_document_is_made() {
             "accelerators",
             "hardware_class",
             "host/cpu_arch",
-            "host/cpu_model",
-            "host/memory_bytes",
-            "host/unified_memory",
-            "host/os_kernel",
-            "driver",
-            "toolkit",
+            "host/unified_memory"
         ]
         .map(str::to_owned)
         .to_vec())
@@ -98,15 +94,31 @@ fn every_unanswered_field_is_named_and_no_document_is_made() {
     no_meminfo.meminfo = None;
     let c = capture(&no_meminfo);
     assert_eq!(c.unified_memory, None, "no framebuffer and no host figure");
-    assert_eq!(
-        c.fingerprint(),
-        Err([
-            "accelerators/0/memory_bytes",
-            "host/memory_bytes",
-            "host/unified_memory"
-        ]
-        .map(str::to_owned)
-        .to_vec())
+    assert_eq!(c.fingerprint(), Err(vec!["host/unified_memory".to_owned()]));
+}
+
+/// A quantity a tool did not answer is written absent, never zero, and the
+/// document is still made, with a digest of its own (DECISIONS PC-V).
+/// Sabotage: refusing a document with any absent quantity (the pre-PC-V
+/// producer) fails the `expect`.
+#[test]
+fn a_partly_measured_machine_has_a_document_with_absent_quantities() {
+    let mut out = gb10_outputs();
+    out.nvidia_banner = None;
+    out.lscpu = None;
+    let fp = capture(&out)
+        .fingerprint()
+        .expect("identity measured; quantities may be absent");
+    let mut want = serde_json::to_value(fixture()).expect("serializes");
+    want["toolkit"] = serde_json::json!({"absent": "unavailable"});
+    want["host"]["cpu_model"] = serde_json::json!({"absent": "unavailable"});
+    assert_eq!(serde_json::to_value(&fp).expect("serializes"), want);
+    let back: HardwareFingerprint = serde_json::from_value(want).expect("a valid document");
+    assert_eq!(back, fp);
+    assert_ne!(
+        digest(&fp),
+        digest(&fixture()),
+        "absence is part of the digest"
     );
 }
 

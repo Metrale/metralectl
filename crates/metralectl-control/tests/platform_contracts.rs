@@ -9,23 +9,26 @@
 //! platform's. Every closed word the agent binds is the schema's.
 
 use metralectl_control::platform::action::{
-    ActionKind, ActionOutcome, DeploymentAction, DeploymentActionResult, RefusalReason,
+    ActionKind, ActionOutcome, DeploymentAction, DeploymentActionResult, FailureReason,
+    RefusalReason,
 };
 use metralectl_control::platform::canonical::{digest, sha256};
 use metralectl_control::platform::deployment::ModelDeployment;
 use metralectl_control::platform::fingerprint::HardwareFingerprint;
+use metralectl_control::platform::recipe::ModelRecipe;
 use metralectl_control::platform::release::ReleaseManifest;
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 /// The kinds this repository binds to its own types.
-const BOUND: [&str; 5] = [
+const BOUND: [&str; 6] = [
     "deployment-action",
     "deployment-action-result",
     "model-deployment",
     "hardware-fingerprint",
     "release-manifest",
+    "model-recipe",
 ];
 
 fn bundle() -> PathBuf {
@@ -105,6 +108,7 @@ fn bind(kind: &str, doc: &Value) -> Result<String, String> {
         "model-deployment" => take::<ModelDeployment>(doc),
         "hardware-fingerprint" => take::<HardwareFingerprint>(doc),
         "release-manifest" => take::<ReleaseManifest>(doc),
+        "model-recipe" => take::<ModelRecipe>(doc),
         other => panic!("{other} is not bound"),
     }
 }
@@ -184,6 +188,8 @@ fn every_reason() -> Vec<RefusalReason> {
         R::HardwareIncompatible,
         R::NotHere,
         R::Busy,
+        R::Cordoned,
+        R::Draining,
     ];
     for r in all {
         match r {
@@ -193,17 +199,30 @@ fn every_reason() -> Vec<RefusalReason> {
             | R::ReceiptMissing
             | R::HardwareIncompatible
             | R::NotHere
-            | R::Busy => {}
+            | R::Busy
+            | R::Cordoned
+            | R::Draining => {}
+        }
+    }
+    all.to_vec()
+}
+
+fn every_failure() -> Vec<FailureReason> {
+    use FailureReason as F;
+    let all = [F::ImageUnavailable, F::LaunchFailed, F::NotReady, F::Exited];
+    for f in all {
+        match f {
+            F::ImageUnavailable | F::LaunchFailed | F::NotReady | F::Exited => {}
         }
     }
     all.to_vec()
 }
 
 fn every_action() -> Vec<ActionKind> {
-    let all = [ActionKind::Apply, ActionKind::Stop, ActionKind::Drain];
+    let all = [ActionKind::Apply, ActionKind::Stop];
     for a in all {
         match a {
-            ActionKind::Apply | ActionKind::Stop | ActionKind::Drain => {}
+            ActionKind::Apply | ActionKind::Stop => {}
         }
     }
     all.to_vec()
@@ -217,6 +236,12 @@ fn the_refusal_reasons_and_actions_are_exactly_the_schema_words() {
     );
     let ours: BTreeSet<String> = every_reason().iter().map(word).collect();
     assert_eq!(ours, reasons);
+    let failures = schema_words(
+        "deployment-action-result.v1.schema.json",
+        "/properties/outcome/oneOf/3/properties/failed/properties/reason/enum",
+    );
+    let ours: BTreeSet<String> = every_failure().iter().map(word).collect();
+    assert_eq!(ours, failures);
     let actions = schema_words(
         "deployment-action.v1.schema.json",
         "/properties/action/enum",
@@ -235,7 +260,11 @@ fn every_other_closed_word_of_a_bound_kind_parses() {
     use metralectl_control::platform::deployment::{
         ConditionKind, ConditionStatus, HealthState, Phase,
     };
+    use metralectl_control::platform::field::AbsentReason;
     use metralectl_control::platform::fingerprint::{CpuArch, Vendor};
+    use metralectl_control::platform::recipe::{
+        Engine, EvidenceKind, Modality, Precision, StoragePrecision,
+    };
     use metralectl_control::platform::release::SbomFormat;
     fn each<T: serde::de::DeserializeOwned + serde::Serialize>(file: &str, pointer: &str) {
         for w in schema_words(file, pointer) {
@@ -270,4 +299,11 @@ fn every_other_closed_word_of_a_bound_kind_parses() {
         "release-manifest.v1.schema.json",
         "/properties/sbom/properties/format/enum",
     );
+    each::<AbsentReason>("common.v1.schema.json", "/$defs/absent_reason/enum");
+    each::<StoragePrecision>("common.v1.schema.json", "/$defs/storage_precision/enum");
+    each::<Precision>("common.v1.schema.json", "/$defs/precision/enum");
+    let recipe = "model-recipe.v1.schema.json";
+    each::<Engine>(recipe, "/properties/runtime/properties/engine/enum");
+    each::<Modality>(recipe, "/$defs/modality/enum");
+    each::<EvidenceKind>(recipe, "/properties/evidence/items/properties/kind/enum");
 }

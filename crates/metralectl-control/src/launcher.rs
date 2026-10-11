@@ -6,6 +6,7 @@
 //! part — are tested against a recording mock rather than a docker daemon.
 
 use crate::platform::ids::InstanceId;
+use crate::platform::scalars::OciImage;
 use crate::reconcile::contract::{Instance, Owner};
 use crate::release::VerifiedRelease;
 use metralectl_core::{Recipe, ScalarValue};
@@ -89,6 +90,17 @@ pub trait Launcher: Send + Sync {
         launch_for: &LaunchFor,
     ) -> Result<Started, AgentError>;
 
+    /// Make `image` present on this machine, fetching it when it is not.
+    ///
+    /// Separate from [`Self::launch`] so a release whose image cannot be had
+    /// is told apart from a launch the container runtime refused: the plane
+    /// is answered `image_unavailable` for the one and `launch_failed` for
+    /// the other.
+    ///
+    /// # Errors
+    /// Why the image is not present and could not be fetched.
+    fn fetch_image(&self, image: &OciImage) -> Result<(), String>;
+
     /// Stop a recipe by name. Nothing of it running is success: the state a
     /// stop asks for already holds.
     fn stop(&self, recipe: &str) -> Result<(), AgentError>;
@@ -113,6 +125,8 @@ mod mock {
         Preview(String),
         /// A launch was started. Boxed for size: it is the largest call.
         Launch(String, BTreeMap<String, ScalarValue>, Box<LaunchFor>),
+        /// An image was fetched, by its reference.
+        FetchImage(String),
         /// A launch was stopped.
         Stop(String),
         /// Running launches were listed.
@@ -126,6 +140,7 @@ mod mock {
     pub struct RecordingLauncher {
         calls: Mutex<Vec<Call>>,
         fail_launch: Mutex<Option<AgentError>>,
+        fail_fetch: Mutex<Option<String>>,
     }
 
     impl RecordingLauncher {
@@ -139,6 +154,16 @@ mod mock {
             Self {
                 calls: Mutex::new(Vec::new()),
                 fail_launch: Mutex::new(Some(error)),
+                fail_fetch: Mutex::new(None),
+            }
+        }
+
+        /// Make the next image fetch fail with `why`.
+        pub fn failing_fetch(why: &str) -> Self {
+            Self {
+                calls: Mutex::new(Vec::new()),
+                fail_launch: Mutex::new(None),
+                fail_fetch: Mutex::new(Some(why.to_owned())),
             }
         }
 
@@ -190,6 +215,14 @@ mod mock {
             })
         }
 
+        fn fetch_image(&self, image: &OciImage) -> Result<(), String> {
+            self.record(Call::FetchImage(image.reference()));
+            match self.fail_fetch.lock().expect("lock").take() {
+                Some(why) => Err(why),
+                None => Ok(()),
+            }
+        }
+
         fn stop(&self, recipe: &str) -> Result<(), AgentError> {
             self.record(Call::Stop(recipe.to_string()));
             Ok(())
@@ -230,6 +263,9 @@ mod mock_arc {
             launch_for: &LaunchFor,
         ) -> Result<Started, AgentError> {
             self.as_ref().launch(recipe, o, launch_for)
+        }
+        fn fetch_image(&self, image: &OciImage) -> Result<(), String> {
+            self.as_ref().fetch_image(image)
         }
         fn stop(&self, recipe: &str) -> Result<(), AgentError> {
             self.as_ref().stop(recipe)

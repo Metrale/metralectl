@@ -11,6 +11,10 @@
 //! - **changed**: its canonical digest is not the one the deployment names;
 //! - **revoked**: the manifest, or the key that signed it, is withdrawn;
 //! - **unsigned**: no trusted signer's signature over that digest;
+//! - **unbound**: the recipe shipped with it (`recipe.json`, a
+//!   `model-recipe` document, DECISIONS PC-W) is not the one its `recipe`
+//!   digest names, or disagrees with it on the model, the weights, the image
+//!   or the hardware class;
 //! - **mismatched**: it was qualified for another hardware class, not for this
 //!   machine's fingerprint, or for another model than this machine's recipe
 //!   serves.
@@ -22,6 +26,7 @@
 
 use crate::platform::canonical::digest;
 use crate::platform::ids::Sha256Digest;
+use crate::platform::recipe::ModelRecipe;
 use crate::platform::release::ReleaseManifest;
 use crate::platform::scalars::{ModelRepository, OciImage};
 use metralectl_core::hardware::{HardwareClass, classify};
@@ -80,6 +85,12 @@ pub enum Unverified {
     SignerRevoked(SignerId),
     /// No trusted signature over its digest.
     Unsigned(String),
+    /// The shipped recipe is not the one the manifest binds, or disagrees
+    /// with it at this manifest pointer.
+    Recipe {
+        /// Where they disagree.
+        at: &'static str,
+    },
     /// It was qualified for another class of hardware.
     HardwareClass {
         /// The release's class.
@@ -108,6 +119,10 @@ impl std::fmt::Display for Unverified {
             Self::ManifestRevoked => f.write_str("the release manifest is revoked"),
             Self::SignerRevoked(s) => write!(f, "the release was signed by revoked signer {s}"),
             Self::Unsigned(why) => write!(f, "the release manifest is not signed: {why}"),
+            Self::Recipe { at } => write!(
+                f,
+                "the recipe shipped with the release does not match the manifest at {at}"
+            ),
             Self::HardwareClass { release, here } => match here {
                 Some(here) => write!(f, "the release is for {release} hardware; this is {here}"),
                 None => write!(
@@ -168,6 +183,7 @@ impl VerifiedRelease {
 /// The first check it fails, in the order of the module documentation.
 pub fn verify(
     manifest: &ReleaseManifest,
+    recipe: &ModelRecipe,
     expected: &Sha256Digest,
     signature: &[u8],
     verifier: &dyn SignatureVerifier,
@@ -190,6 +206,7 @@ pub fn verify(
     if revoked.signers.contains(&signer) {
         return Err(Unverified::SignerRevoked(signer));
     }
+    bound(manifest, recipe)?;
     let class = classify(here.accelerator);
     if class.as_ref() != Some(&manifest.hardware.hardware_class) {
         return Err(Unverified::HardwareClass {
@@ -216,6 +233,32 @@ pub fn verify(
         model: model.clone(),
         signer,
     })
+}
+
+/// Whether `recipe` is the recipe `manifest` binds, by digest and by what
+/// both say (the same checks the platform's offline verifier makes).
+fn bound(manifest: &ReleaseManifest, recipe: &ModelRecipe) -> Result<(), Unverified> {
+    let disagree = |at| Err(Unverified::Recipe { at });
+    if digest(recipe).ok() != Some(manifest.recipe) {
+        return disagree("/recipe");
+    }
+    if recipe.model.source != manifest.model.source {
+        return disagree("/model/source");
+    }
+    if digest(&recipe.model.weights).ok() != Some(manifest.model.weights) {
+        return disagree("/model/weights");
+    }
+    if recipe.runtime.image != manifest.runtime.image {
+        return disagree("/runtime/image");
+    }
+    if !recipe
+        .runtime
+        .hardware_classes
+        .contains(&manifest.hardware.hardware_class)
+    {
+        return disagree("/hardware/hardware_class");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

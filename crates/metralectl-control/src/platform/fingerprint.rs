@@ -4,8 +4,11 @@
 //!
 //! Accelerators, host, driver and toolkit; no time, serial number or
 //! hostname, so identical machines share one digest and a driver or toolkit
-//! change makes a new one on purpose.
+//! change makes a new one on purpose. What identifies the hardware is
+//! required; a quantity the probe could not read is absent with its reason,
+//! and the absence is part of the digest (DECISIONS PC-V).
 
+use super::field::Field;
 use super::scalars::{SoftwareVersion, Text, V1, non_empty};
 use metralectl_core::hardware::HardwareClass;
 use serde::{Deserialize, Serialize};
@@ -36,7 +39,7 @@ pub struct Accelerator {
     /// Its ISA target (`sm_121`, `gfx1151`).
     pub architecture: Text,
     /// Memory it can use, bytes.
-    pub memory_bytes: NonZeroU64,
+    pub memory_bytes: Field<NonZeroU64>,
     /// How many.
     pub count: NonZeroU32,
 }
@@ -59,13 +62,13 @@ pub struct Host {
     /// CPU architecture.
     pub cpu_arch: CpuArch,
     /// CPU model.
-    pub cpu_model: Text,
+    pub cpu_model: Field<Text>,
     /// Host memory, bytes.
-    pub memory_bytes: NonZeroU64,
+    pub memory_bytes: Field<NonZeroU64>,
     /// Whether the accelerators use host memory.
     pub unified_memory: bool,
     /// The OS kernel release.
-    pub os_kernel: Text,
+    pub os_kernel: Field<Text>,
 }
 
 /// A machine's hardware identity.
@@ -82,7 +85,7 @@ pub struct HardwareFingerprint {
     /// The host.
     pub host: Host,
     /// The accelerator driver.
-    pub driver: SoftwareVersion,
+    pub driver: Field<SoftwareVersion>,
     /// The accelerator toolkit.
-    pub toolkit: SoftwareVersion,
+    pub toolkit: Field<SoftwareVersion>,
 }

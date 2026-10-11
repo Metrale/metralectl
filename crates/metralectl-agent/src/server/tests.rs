@@ -163,6 +163,13 @@ impl metralectl_control::launcher::Launcher for SleepyLauncher {
             endpoint: None,
         })
     }
+    fn fetch_image(
+        &self,
+        _: &metralectl_control::platform::scalars::OciImage,
+    ) -> Result<(), String> {
+        // Not reached: nothing here launches a release.
+        Err("not reached".to_owned())
+    }
     fn stop(&self, _: &str) -> Result<(), metralectl_protocol::msg::AgentError> {
         Ok(())
     }

@@ -11,6 +11,7 @@
 use super::{Revoked, SignatureVerifier, SignerId, ThisMachine, VerifiedRelease, verify};
 use crate::platform::canonical::{digest, sha256};
 use crate::platform::ids::Sha256Digest;
+use crate::platform::recipe::ModelRecipe;
 use crate::platform::release::ReleaseManifest;
 use crate::platform::scalars::ModelRepository;
 
@@ -44,11 +45,33 @@ pub(crate) fn signer() -> SignerId {
     SignerId::from_bytes([7; 32]).expect("any bytes")
 }
 
-/// The bundle's valid release manifest.
-pub(crate) fn manifest() -> ReleaseManifest {
+fn fixture<T: serde::de::DeserializeOwned>(rel: &str) -> T {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../schemas/platform/v1/fixtures/release-manifest/valid/gpt-oss-20b-gb10.json");
+        .join("../../schemas/platform/v1/fixtures")
+        .join(rel);
     serde_json::from_slice(&std::fs::read(path).expect("the vendored fixture")).expect("valid")
+}
+
+/// The bundle's valid `gpt-oss-20b` recipe, as a release ships it.
+pub(crate) fn recipe() -> ModelRecipe {
+    fixture("model-recipe/valid/gpt-oss-20b-mxfp4.json")
+}
+
+/// The bundle's valid release manifest, bound to [`recipe`]. The bundle's
+/// digests are synthetic, so the two fixtures do not name each other as they
+/// are; this sets the manifest's recipe and weights digests to the recipe's.
+pub(crate) fn manifest() -> ReleaseManifest {
+    bind(
+        fixture("release-manifest/valid/gpt-oss-20b-gb10.json"),
+        &recipe(),
+    )
+}
+
+/// `m` with its recipe and weights digests taken from `r`.
+pub(crate) fn bind(mut m: ReleaseManifest, r: &ModelRecipe) -> ReleaseManifest {
+    m.recipe = digest(r).expect("integers");
+    m.model.weights = digest(&r.model.weights).expect("integers");
+    m
 }
 
 /// The fingerprint digest the bundle's manifest was qualified on.
@@ -58,12 +81,15 @@ pub(crate) fn qualified_fingerprint() -> Sha256Digest {
 
 /// The bundle's manifest, serving `model`, verified on a GB10.
 pub(crate) fn verified_serving(model: &str) -> VerifiedRelease {
-    let mut m = manifest();
-    m.model.source.repository = ModelRepository::try_from(model.to_owned()).expect("owner/name");
+    let mut r = recipe();
+    r.model.source.repository = ModelRepository::try_from(model.to_owned()).expect("owner/name");
+    let mut m = bind(manifest(), &r);
+    m.model.source.repository = r.model.source.repository.clone();
     let d = digest(&m).expect("integers");
     let fp = qualified_fingerprint();
     verify(
         &m,
+        &r,
         &d,
         &sign(&signer(), &d),
         &TestVerifier(vec![signer()]),

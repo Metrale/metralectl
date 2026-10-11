@@ -1,6 +1,7 @@
-# Pin of the vendored platform-contract bundle in `schemas/platform/` (investor-mvp #41).
+# 2026-10-11: Pin of the vendored platform-contract bundle in `schemas/platform/` (investor-mvp #41).
 # The copy is Metrale/mfs `schemas/platform/` at `mfs_commit`, unchanged. `sha256sums` is the
 # SHA-256 of its `SHA256SUMS`. `crates/metralectl-control/tests/platform_contracts.rs` checks both,
-# and runs the agent's binding over the bundle's fixtures. Update the copy and this pin together.
-mfs_commit = "9fa8a0bee2c512f1dd9ed34f99f04541bc1c6b8f"
-sha256sums = "6de004818098035e1f3854c111c2b325734cc303e03e5cdad6aa315034f9fa16"
+# and runs the agent's binding over the bundle's fixtures. Refresh both with
+# `bash scripts/vendor-platform-schemas.sh <mfs-clone> <commit>`; never edit the copy by hand.
+mfs_commit = "f978679f98cedf17eb951d25e05348d8cd0b091b"
+sha256sums = "7c676e1aa140e6ce55749fb324f0aa56bedb69256836233371e7b3bb0e9ab439"

@@ -4,6 +4,7 @@
 
 use super::idempotent::{self, LaunchedAs, PsRow};
 use super::{LaunchFor, Launcher, Preview, Started, Workload};
+use crate::platform::scalars::OciImage;
 use metralectl_core::chain::UserConfig;
 use metralectl_core::docker::collective::NcclRoce;
 use metralectl_core::docker::profile::{DeviceProfile, LaunchProfile};
@@ -271,6 +272,36 @@ impl Launcher for DockerLauncher {
             container: name,
             endpoint: idempotent::endpoint_of(&plan.docker.command),
         })
+    }
+
+    fn fetch_image(&self, image: &OciImage) -> Result<(), String> {
+        // Present already: nothing to fetch, and a node with no route to the
+        // registry still launches what it holds. By digest, so "present"
+        // means these bytes, not whatever a tag points at now.
+        let reference = image.reference();
+        let inspect = [
+            "docker", "image", "inspect", "--format", "{{.Id}}", &reference,
+        ];
+        let present = self
+            .runner
+            .run(&inspect.map(str::to_owned))
+            .is_ok_and(|o| o.success());
+        if present {
+            return Ok(());
+        }
+        let out = self
+            .runner
+            .run(&["docker".into(), "pull".into(), reference.clone()])
+            .map_err(|e| format!("docker pull {reference}: {e:#}"))?;
+        if out.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "docker pull {reference} exited {}: {}",
+                out.status,
+                out.stderr.trim()
+            ))
+        }
     }
 
     fn stop(&self, recipe: &str) -> Result<(), AgentError> {

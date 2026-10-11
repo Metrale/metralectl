@@ -6,15 +6,17 @@
 //! what they printed through the shared parsers in
 //! `metralectl_core::hardware::capture` and classifies the accelerator with
 //! `metralectl_core::hardware::classify`, the same classification the launch
-//! gate and the reconciler use. Every field a tool did not answer stays
-//! absent. The contract has no absent form for a fingerprint field, so
-//! [`Capture::fingerprint`] names what is missing instead of writing a zero
-//! or a guess: a fingerprint is either fully measured or not produced.
+//! gate and the reconciler use. Every quantity a tool did not answer is
+//! written absent (`unavailable`), never zero or a guess (DECISIONS PC-V), so
+//! a partly probed machine still has a document, with its own digest. Only
+//! what identifies the hardware is required; without it
+//! [`Capture::fingerprint`] names what is missing and makes no document.
 //!
 //! NVIDIA hosts are read today. A ROCm host (Strix Halo) leaves every
 //! accelerator field absent: no captured `rocm-smi`/`amd-smi` output from
 //! that part was available to test a parser against.
 
+use crate::platform::field::{AbsentReason, Field};
 use crate::platform::fingerprint::{Accelerator, CpuArch, HardwareFingerprint, Host, Vendor};
 use crate::platform::scalars::{SoftwareVersion, Text, V1};
 use metralectl_core::hardware::capture::{
@@ -205,12 +207,18 @@ fn version(v: Option<&(String, String)>) -> Option<SoftwareVersion> {
     })
 }
 
+/// A quantity a tool answered, or absent because it did not.
+fn quantity<T>(v: Option<T>) -> Field<T> {
+    Field::measured_or(v, AbsentReason::Unavailable)
+}
+
 impl Capture {
-    /// The fingerprint document, when every field it requires was measured.
+    /// The fingerprint document: every identifying field measured, every
+    /// quantity measured or absent.
     ///
     /// # Errors
-    /// Each field the tools did not answer (or answered with something the
-    /// contract refuses), by its path in the document.
+    /// Each identifying field the tools did not answer (or answered with
+    /// something the contract refuses), by its path in the document.
     pub fn fingerprint(&self) -> Result<HardwareFingerprint, Vec<String>> {
         let mut missing: Vec<String> = Vec::new();
         let m = &mut missing;
@@ -222,69 +230,38 @@ impl Capture {
             let at = |field: &str| format!("accelerators/{i}/{field}");
             let product = require(m, &at("product"), text(a.product.as_deref()));
             let architecture = require(m, &at("architecture"), text(a.architecture.as_deref()));
-            let memory = require(
-                m,
-                &at("memory_bytes"),
-                a.memory_bytes.and_then(NonZeroU64::new),
-            );
             let count = require(m, &at("count"), NonZeroU32::new(a.count));
-            if let (Some(product), Some(architecture), Some(memory_bytes), Some(count)) =
-                (product, architecture, memory, count)
+            if let (Some(product), Some(architecture), Some(count)) = (product, architecture, count)
             {
                 accelerators.push(Accelerator {
                     vendor: a.vendor,
                     product,
                     architecture,
-                    memory_bytes,
+                    memory_bytes: quantity(a.memory_bytes.and_then(NonZeroU64::new)),
                     count,
                 });
             }
         }
         let class = require(m, "hardware_class", self.hardware_class.clone());
         let cpu_arch = require(m, "host/cpu_arch", self.cpu_arch);
-        let cpu_model = require(m, "host/cpu_model", text(self.cpu_model.as_deref()));
-        let host_memory = require(
-            m,
-            "host/memory_bytes",
-            self.host_memory_bytes.and_then(NonZeroU64::new),
-        );
         let unified_memory = require(m, "host/unified_memory", self.unified_memory);
-        let os_kernel = require(m, "host/os_kernel", text(self.os_kernel.as_deref()));
-        let driver = require(m, "driver", version(self.driver.as_ref()));
-        let toolkit = require(m, "toolkit", version(self.toolkit.as_ref()));
-        match (
-            class,
-            cpu_arch,
-            cpu_model,
-            host_memory,
-            unified_memory,
-            os_kernel,
-            driver,
-            toolkit,
-        ) {
-            (
-                Some(hardware_class),
-                Some(cpu_arch),
-                Some(cpu_model),
-                Some(memory_bytes),
-                Some(unified_memory),
-                Some(os_kernel),
-                Some(driver),
-                Some(toolkit),
-            ) if missing.is_empty() => Ok(HardwareFingerprint {
-                version: V1,
-                hardware_class,
-                accelerators,
-                host: Host {
-                    cpu_arch,
-                    cpu_model,
-                    memory_bytes,
-                    unified_memory,
-                    os_kernel,
-                },
-                driver,
-                toolkit,
-            }),
+        match (class, cpu_arch, unified_memory) {
+            (Some(hardware_class), Some(cpu_arch), Some(unified_memory)) if missing.is_empty() => {
+                Ok(HardwareFingerprint {
+                    version: V1,
+                    hardware_class,
+                    accelerators,
+                    host: Host {
+                        cpu_arch,
+                        cpu_model: quantity(text(self.cpu_model.as_deref())),
+                        memory_bytes: quantity(self.host_memory_bytes.and_then(NonZeroU64::new)),
+                        unified_memory,
+                        os_kernel: quantity(text(self.os_kernel.as_deref())),
+                    },
+                    driver: quantity(version(self.driver.as_ref())),
+                    toolkit: quantity(version(self.toolkit.as_ref())),
+                })
+            }
             _ => Err(missing),
         }
     }

@@ -63,6 +63,12 @@ impl Launcher for SharedLauncher {
     ) -> Result<metralectl_control::launcher::Started, AgentError> {
         self.0.launch(recipe, o, launch_for)
     }
+    fn fetch_image(
+        &self,
+        image: &metralectl_control::platform::scalars::OciImage,
+    ) -> Result<(), String> {
+        self.0.fetch_image(image)
+    }
     fn stop(&self, recipe: &str) -> Result<(), AgentError> {
         self.0.stop(recipe)
     }

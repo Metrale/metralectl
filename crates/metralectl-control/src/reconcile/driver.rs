@@ -15,10 +15,12 @@
 
 use super::contract::{Desired, Instance, Intent, Observed, Owner, Placement, Step};
 use super::decide;
+use crate::admission::Admission;
 use crate::control::LocalControl;
 use crate::launcher::{LaunchFor, Workload};
 use crate::platform::action::{
-    ActionKind, ActionOutcome, DeploymentAction, DeploymentActionResult, RefusalReason, Refused,
+    ActionKind, ActionOutcome, DeploymentAction, DeploymentActionResult, Failed, FailureReason,
+    RefusalReason, Refused,
 };
 use crate::platform::ids::{InstanceId, NodeId};
 use crate::platform::scalars::{UnixMs, V1};
@@ -41,12 +43,11 @@ pub struct Target {
     pub placement: Placement,
 }
 
-/// The desired state an action asks for.
-///
-/// # Errors
-/// For `drain`: winding down one deployment's requests needs the runtime to
-/// stop admitting them, and the agent has no such verb to call.
-pub fn desired_for(action: &DeploymentAction, target: &Target) -> Result<Desired, String> {
+/// The desired state an action asks for. The contract's actions are `apply`
+/// and `stop`; draining is the node's admission state ([`crate::admission`]),
+/// never an action about one deployment.
+#[must_use]
+pub fn desired_for(action: &DeploymentAction, target: &Target) -> Desired {
     let intent = match action.action {
         ActionKind::Apply => Intent::Run {
             recipe: target.recipe.clone(),
@@ -54,26 +55,22 @@ pub fn desired_for(action: &DeploymentAction, target: &Target) -> Result<Desired
             placement: target.placement.clone(),
         },
         ActionKind::Stop => Intent::Stopped,
-        ActionKind::Drain => {
-            return Err(
-                "drain is not carried out by this agent: it needs the runtime to stop \
-                 admitting the deployment's requests, which no runtime verb does yet"
-                    .to_owned(),
-            );
-        }
     };
-    Ok(Desired {
+    Desired {
         deployment: action.deployment.clone(),
         generation: action.generation,
         intent,
-    })
+    }
 }
 
 /// What came of converging one deployment, in the result contract's terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Answer {
-    /// Applied, already applied, or refused with a contract reason.
+    /// Applied, already applied, refused or failed with a contract reason.
     pub outcome: ActionOutcome,
+    /// What the container runtime said when an attempt failed, for the
+    /// host's own log. Never sent: the result carries only the closed reason.
+    pub detail: Option<String>,
     /// The newest generation of the deployment running here, if any.
     pub running_generation: Option<Generation>,
     /// The deployment's instances running here.
@@ -86,11 +83,19 @@ pub struct Answer {
 /// `release_unverified` before anything is touched. A launch records `trace`
 /// on the container it starts.
 ///
+/// A launch on a cordoned or draining node is refused `cordoned` or
+/// `draining`, and nothing is started; a stop still runs, because admission
+/// gates only new work. A launch that was attempted and left nothing running
+/// is `failed`: `image_unavailable` when the release's image could not be
+/// made present, `launch_failed` when the container runtime refused it, and
+/// `exited` when it started and is gone by the next observation. This
+/// launcher does not wait for readiness, so it never answers `not_ready`.
+///
 /// # Errors
-/// A launch or stop the control core refused or that failed (a cordoned node,
-/// a docker failure), a launcher that cannot be observed, or no convergence
-/// within `max_steps`. Each leaves the node as the launcher reports it, and
-/// the next call starts from there.
+/// A launch or stop the control core refused for a reason the contract has
+/// no word for (settings, an unknown recipe), a launcher that cannot be
+/// observed, or no convergence within `max_steps`. Each leaves the node as
+/// the launcher reports it, and the next call starts from there.
 pub async fn converge(
     control: &LocalControl<'_>,
     desired: &Desired,
@@ -107,6 +112,7 @@ pub async fn converge(
         return Ok(answer(refused, desired, &control.workloads().await?));
     }
     let mut acted = false;
+    let mut launched: Option<RecipeId> = None;
     for _ in 0..=max_steps.get() {
         let workloads = control.workloads().await?;
         let instances: Vec<Instance> = workloads.iter().map(|w| w.instance.clone()).collect();
@@ -125,26 +131,42 @@ pub async fn converge(
             Step::Refuse(refusal) => ActionOutcome::Refused(Refused {
                 reason: refusal.reason(),
             }),
+            // It was started in this call and is not running now.
+            Step::Launch { recipe } if launched.as_ref() == Some(&recipe) => {
+                let exited = failed(FailureReason::Exited);
+                return Ok(answer(exited, desired, &control.workloads().await?));
+            }
             Step::Launch { recipe } => {
-                let owner = Owner {
-                    deployment: desired.deployment.clone(),
-                    generation: desired.generation,
-                };
-                let launch_for = LaunchFor {
-                    owner: Some(owner),
-                    release: release.cloned(),
+                let attempt = Attempt {
+                    desired,
+                    recipe: &recipe,
+                    release,
                     trace,
                 };
-                control
-                    .launch(&recipe, &BTreeMap::new(), launch_for)
-                    .await?;
+                if let Some((outcome, detail)) = attempt.launch(control).await? {
+                    let mut a = answer(outcome, desired, &control.workloads().await?);
+                    a.detail = detail;
+                    return Ok(a);
+                }
+                launched = Some(recipe);
                 acted = true;
                 continue;
             }
+            // A stop on the way to serving makes room for a launch; a node
+            // that will not take the launch keeps what it serves instead of
+            // tearing it down for nothing.
             Step::Stop { recipe } => {
-                control.stop(&recipe).await?;
-                acted = true;
-                continue;
+                let closed = match desired.intent {
+                    Intent::Run { .. } => admission_refusal(control),
+                    Intent::Stopped => None,
+                };
+                if let Some(closed) = closed {
+                    closed
+                } else {
+                    control.stop(&recipe).await?;
+                    acted = true;
+                    continue;
+                }
             }
         };
         return Ok(answer(outcome, desired, &workloads));
@@ -155,6 +177,73 @@ pub async fn converge(
             desired.deployment.as_str()
         ),
     })
+}
+
+/// One launch of `recipe` for `desired`, as the reconciler attempts it.
+struct Attempt<'a> {
+    desired: &'a Desired,
+    recipe: &'a RecipeId,
+    release: Option<&'a VerifiedRelease>,
+    trace: Option<ControlTrace>,
+}
+
+impl Attempt<'_> {
+    /// `None` when it started; otherwise the outcome that answers the action
+    /// and what the runtime said.
+    async fn launch(
+        self,
+        control: &LocalControl<'_>,
+    ) -> Result<Option<(ActionOutcome, Option<String>)>, AgentError> {
+        if let Some(closed) = admission_refusal(control) {
+            return Ok(Some((closed, None)));
+        }
+        if let Some(release) = self.release
+            && let Err(why) = control.fetch_image(release.image()).await
+        {
+            return Ok(Some((failed(FailureReason::ImageUnavailable), Some(why))));
+        }
+        let owner = Owner {
+            deployment: self.desired.deployment.clone(),
+            generation: self.desired.generation,
+        };
+        let launch_for = LaunchFor {
+            owner: Some(owner),
+            release: self.release.cloned(),
+            trace: self.trace,
+        };
+        match control
+            .launch(self.recipe, &BTreeMap::new(), launch_for)
+            .await
+        {
+            Ok(_) => Ok(None),
+            Err(e @ (AgentError::LaunchFailed { .. } | AgentError::DockerUnavailable { .. })) => {
+                Ok(Some((
+                    failed(FailureReason::LaunchFailed),
+                    Some(e.to_string()),
+                )))
+            }
+            // The node was cordoned between the check above and the launch.
+            Err(e @ AgentError::NotLaunchable { .. }) => match admission_refusal(control) {
+                Some(closed) => Ok(Some((closed, None))),
+                None => Err(e),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+
+/// The refusal a cordoned or draining node answers a launch with.
+fn admission_refusal(control: &LocalControl<'_>) -> Option<ActionOutcome> {
+    let reason = match control.admission.current() {
+        Admission::Open => return None,
+        Admission::Cordoned { .. } => RefusalReason::Cordoned,
+        Admission::Draining { .. } => RefusalReason::Draining,
+    };
+    Some(ActionOutcome::Refused(Refused { reason }))
+}
+
+fn failed(reason: FailureReason) -> ActionOutcome {
+    ActionOutcome::Failed(Failed { reason })
 }
 
 /// The answer for `outcome`, from what this deployment runs here.
@@ -168,6 +257,7 @@ fn answer(outcome: ActionOutcome, desired: &Desired, workloads: &[Workload]) -> 
         .collect();
     Answer {
         outcome,
+        detail: None,
         running_generation: ours.iter().map(|(_, g)| *g).max(),
         instances: ours.iter().map(|(w, _)| w.id).collect(),
     }
@@ -178,8 +268,7 @@ fn answer(outcome: ActionOutcome, desired: &Desired, workloads: &[Workload]) -> 
 /// An action for another node is refused `not_here` and nothing is touched.
 ///
 /// # Errors
-/// As [`converge`]; and an action this agent does not carry out
-/// ([`desired_for`]) is refused as `NotLaunchable`.
+/// As [`converge`].
 pub async fn answer_action(
     control: &LocalControl<'_>,
     node: NodeId,
@@ -188,10 +277,7 @@ pub async fn answer_action(
     max_steps: NonZeroU32,
     now: &(dyn Fn() -> UnixMs + Sync),
 ) -> Result<DeploymentActionResult, AgentError> {
-    let desired = desired_for(action, target).map_err(|reason| AgentError::NotLaunchable {
-        recipe: target.recipe.clone(),
-        reason,
-    })?;
+    let desired = desired_for(action, target);
     let answered = if action.node_id == node {
         // The plane's attempt at a deployment action is its idempotency
         // key: every resend of the action carries the same one.

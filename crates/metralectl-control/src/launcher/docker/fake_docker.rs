@@ -7,7 +7,7 @@
 //! first. This keeps containers as state that outlives any one launcher (an
 //! agent restart is a new `DockerLauncher` over the same daemon) and refuses
 //! what docker refuses: a second container under a name in use, and a
-//! `docker stop` with nothing to stop. Only the five commands the launcher
+//! `docker stop` with nothing to stop. Only the seven commands the launcher
 //! issues are understood; anything else panics, so a new call cannot pass
 //! unnoticed. `docker ps --format` renders the launcher's own template, so a
 //! column the template asks for is answered from the container's labels
@@ -63,6 +63,14 @@ struct State {
     minted: usize,
     /// The next `docker run` fails before creating anything.
     fail_next_run: bool,
+    /// Images present on this machine, by reference.
+    images: Vec<String>,
+    /// How many `docker pull`s were issued.
+    pulls: usize,
+    /// The next `docker pull` fails and fetches nothing.
+    fail_next_pull: bool,
+    /// The next container `docker run` creates exits at once.
+    exit_next_run: bool,
 }
 
 pub(crate) struct FakeDocker {
@@ -105,6 +113,42 @@ impl FakeDocker {
     /// created.
     pub(crate) fn fail_next_run(&self) {
         self.state.lock().expect("lock").fail_next_run = true;
+    }
+
+    /// Make the next container exit as soon as it starts, the way an engine
+    /// that dies at startup does: `docker run -d` succeeds, nothing runs.
+    pub(crate) fn exit_next_run(&self) {
+        self.state.lock().expect("lock").exit_next_run = true;
+    }
+
+    /// Make the next `docker pull` fail the way an unreachable registry or an
+    /// unknown digest does: nothing is fetched.
+    pub(crate) fn fail_next_pull(&self) {
+        self.state.lock().expect("lock").fail_next_pull = true;
+    }
+
+    /// How many `docker pull`s were issued — successful or not.
+    pub(crate) fn pulls(&self) -> usize {
+        self.state.lock().expect("lock").pulls
+    }
+
+    fn image_inspect(&self, reference: &str) -> Output {
+        let state = self.state.lock().expect("lock");
+        if state.images.iter().any(|i| i == reference) {
+            out(0, "sha256:present\n", "")
+        } else {
+            out(1, "", "Error: No such image")
+        }
+    }
+
+    fn pull(&self, reference: &str) -> Output {
+        let mut state = self.state.lock().expect("lock");
+        state.pulls += 1;
+        if std::mem::take(&mut state.fail_next_pull) {
+            return out(1, "", "Error response from daemon: manifest unknown");
+        }
+        state.images.push(reference.to_owned());
+        out(0, "Status: Downloaded newer image", "")
     }
 
     /// A running container's labels.
@@ -225,6 +269,7 @@ impl FakeDocker {
         }
         state.minted += 1;
         let id = format!("{:064x}", state.minted);
+        let running = !std::mem::take(&mut state.exit_next_run);
         state.containers.push(Container {
             id: id.clone(),
             name,
@@ -232,7 +277,7 @@ impl FakeDocker {
             image: argv[at].clone(),
             cmd: argv[at + 1..].to_vec(),
             env: values_of(argv, "-e"),
-            running: true,
+            running,
         });
         out(0, id, "")
     }
@@ -245,6 +290,10 @@ impl ProcessRunner for FakeDocker {
             ["docker", "ps", "--no-trunc", "--format", template] => self.ps(template),
             ["docker", "inspect", "--format", _, id] => self.inspect(id),
             ["docker", "rm", "-f", name] => self.rm(name),
+            ["docker", "image", "inspect", "--format", _, reference] => {
+                self.image_inspect(reference)
+            }
+            ["docker", "pull", reference] => self.pull(reference),
             ["docker", "stop", ..] => self.stop(&argv[2..]),
             ["docker", "run", ..] => self.run_container(argv),
             other => panic!("the fake daemon does not know {other:?}"),

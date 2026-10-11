@@ -4,7 +4,7 @@
 //! a generation) and the last state observed (its status).
 
 use super::ids::{InstanceId, NodeId, Sha256Digest};
-use super::scalars::{Scope, Text, UnixMs, V1, non_empty, present};
+use super::scalars::{ModelName, Scope, UnixMs, V1, non_empty, present};
 use crate::reconcile::contract::{DeploymentName, Generation};
 use metralectl_core::hardware::HardwareClass;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ pub struct DeploymentSpec {
     /// The release manifest's content digest.
     pub release: Sha256Digest,
     /// The name requests use.
-    pub served_model: Text,
+    pub served_model: ModelName,
     /// The shape of one replica.
     pub topology: Topology,
     /// How many replicas.

@@ -16,8 +16,6 @@ pub enum ActionKind {
     Apply,
     /// Serve nothing for the deployment here.
     Stop,
-    /// Stop taking new work for the deployment here.
-    Drain,
 }
 
 /// A typed, idempotent command from the plane to one agent; never a command
@@ -63,6 +61,11 @@ pub enum RefusalReason {
     NotHere,
     /// Applying it would touch a workload that is not the deployment's.
     Busy,
+    /// This node is cordoned: it takes no new launches.
+    Cordoned,
+    /// This node is draining: it takes no new launches while what runs winds
+    /// down.
+    Draining,
 }
 
 /// A refusal, as the result spells it.
@@ -73,6 +76,29 @@ pub struct Refused {
     pub reason: RefusalReason,
 }
 
+/// Why an attempted action left no instance of the generation running.
+/// Closed; never the engine's own text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureReason {
+    /// The release's image could not be made present on this node.
+    ImageUnavailable,
+    /// The container runtime refused or failed the launch.
+    LaunchFailed,
+    /// It started and did not become ready.
+    NotReady,
+    /// It started and exited.
+    Exited,
+}
+
+/// A failure, as the result spells it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Failed {
+    /// Why.
+    pub reason: FailureReason,
+}
+
 /// What came of an action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -81,8 +107,10 @@ pub enum ActionOutcome {
     Applied,
     /// What it asks for already held; nothing was started or stopped.
     AlreadyApplied,
-    /// It was not carried out.
+    /// It was not attempted.
     Refused(Refused),
+    /// It was attempted, and no instance of the generation runs.
+    Failed(Failed),
 }
 
 /// The agent's answer to a [`DeploymentAction`].

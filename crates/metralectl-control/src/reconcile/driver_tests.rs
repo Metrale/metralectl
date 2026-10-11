@@ -256,21 +256,6 @@ async fn a_repeated_apply_after_a_lost_ack_or_a_restart_starts_nothing() {
     assert_eq!(node.daemon.runs(), 1, "one docker run for three applies");
 }
 
-/// A failed release (the image pull fails) leaves nothing, and the retry
-/// launches exactly once. Sabotage: recording "launched" before the launch
-/// succeeds answers the retry `already_applied` with nothing running.
-#[tokio::test]
-async fn a_failed_launch_leaves_nothing_and_the_retry_launches_once() {
-    let node = Node::new();
-    node.daemon.fail_next_run();
-    let err = node.converge(&run_a(1)).await.expect_err("the pull failed");
-    assert!(matches!(err, AgentError::LaunchFailed { .. }), "{err:?}");
-    assert!(node.daemon.running().is_empty());
-    let retry = node.converge(&run_a(1)).await.expect("converges");
-    assert_eq!(retry.outcome, ActionOutcome::Applied);
-    assert_eq!(node.daemon.running(), [format!("metrale-{A}")]);
-}
-
 /// A new generation replaces this deployment's own older one; a workload
 /// the browser started keeps running throughout. Sabotage: a stop that is not
 /// limited to this deployment's recipe takes the browser's workload with it.
@@ -370,19 +355,6 @@ async fn the_launcher_does_not_adopt_another_deployments_container() {
     assert!(matches!(err, AgentError::AlreadyRunning { .. }), "{err:?}");
 }
 
-/// A cordoned node refuses the reconciler's launch exactly as it refuses the
-/// browser's, because both go through one control core.
-#[tokio::test]
-async fn a_cordoned_node_launches_nothing_for_a_deployment() {
-    let node = Node::new();
-    node.admission.set(Admission::Cordoned {
-        reason: "retiring".into(),
-    });
-    let err = node.converge(&run_a(1)).await.expect_err("cordoned");
-    assert!(matches!(err, AgentError::NotLaunchable { .. }), "{err:?}");
-    assert_eq!(node.daemon.runs(), 0);
-}
-
 fn action(node: &str, kind: &str) -> DeploymentAction {
     serde_json::from_value(serde_json::json!({
         "version": 1,
@@ -448,11 +420,7 @@ async fn an_action_is_answered_in_the_result_contract_and_only_for_this_node() {
         node.label(&container, "io.metralectl.trace").as_deref(),
         Some("4bf92f3577b34da6a3ce929d0e0e4736")
     );
-
-    let drain = action(&"66".repeat(32), "drain");
-    assert!(
-        answer_action(&node.agent(), here, &drain, &t, steps(), &now)
-            .await
-            .is_err()
-    );
 }
+
+#[path = "driver_failure_tests.rs"]
+mod failures;

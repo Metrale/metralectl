@@ -39,6 +39,65 @@ where
     Ok(items)
 }
 
+/// A string the schema constrains by a pattern, checked when it is parsed.
+macro_rules! checked_string {
+    ($(#[$meta:meta])* $name:ident, $what:literal, $check:expr) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        #[serde(try_from = "String", into = "String")]
+        pub struct $name(String);
+
+        impl $name {
+            /// The string.
+            #[must_use]
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = String;
+            fn try_from(s: String) -> Result<Self, String> {
+                let check: fn(&str) -> bool = $check;
+                if check(&s) {
+                    Ok(Self(s))
+                } else {
+                    Err(format!("{s:?} is not {}", $what))
+                }
+            }
+        }
+
+        impl From<$name> for String {
+            fn from(v: $name) -> Self {
+                v.0
+            }
+        }
+    };
+}
+
+/// `[first][rest]{0,max}` with the given byte classes.
+pub(crate) fn word(s: &str, first: fn(u8) -> bool, rest: fn(u8) -> bool, max: usize) -> bool {
+    match s.as_bytes().split_first() {
+        Some((f, r)) => first(*f) && r.len() <= max && r.iter().all(|c| rest(*c)),
+        None => false,
+    }
+}
+
+pub(crate) use checked_string;
+
+checked_string!(
+    /// A served model name: the `model` a client sends and the Gateway
+    /// routes on (DECISIONS PC-R). A route, never an identity.
+    ModelName,
+    "a model name (1 to 128 of A-Z a-z 0-9 . _ : / -, starting alphanumeric)",
+    |s| word(
+        s,
+        |c| c.is_ascii_alphanumeric(),
+        |c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b':' | b'/' | b'-'),
+        127
+    )
+);
+
 /// The schema version of every v1 document. A reader refuses any other.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u64", into = "u64")]

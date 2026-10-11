@@ -14,6 +14,7 @@ use crate::LaunchTelemetry;
 use crate::admission::AdmissionGate;
 use crate::launcher::{LaunchFor, Launcher, Preview, Started, Workload};
 use crate::logs::LogTail;
+use crate::platform::scalars::OciImage;
 use metralectl_core::registry::{RecipeRef, RegistrySet};
 use metralectl_core::settings;
 use metralectl_protocol::RecipeId;
@@ -226,6 +227,18 @@ impl LocalControl<'_> {
         let launcher = std::sync::Arc::clone(&self.launcher);
         let recipe = recipe_id.as_str().to_owned();
         blocking(move || launcher.stop(&recipe)).await
+    }
+
+    /// Make a release's image present here (a pull, when it is not).
+    ///
+    /// # Errors
+    /// Why it could not be: the reconciler answers `image_unavailable`.
+    pub async fn fetch_image(&self, image: &OciImage) -> Result<(), String> {
+        let launcher = std::sync::Arc::clone(&self.launcher);
+        let image = image.clone();
+        blocking(move || Ok(launcher.fetch_image(&image)))
+            .await
+            .map_err(|e| e.to_string())?
     }
 
     /// What is running on this machine.
