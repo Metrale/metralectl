@@ -203,7 +203,7 @@ fn answer_in_kind(req: &ControlReq) -> Scripted {
         },
         ControlReq::Stats { recipe } => ControlRep::Stats {
             recipe: recipe.clone(),
-            stats: metralectl_protocol::msg::LaunchReading::default(),
+            stats: Box::default(),
         },
         ControlReq::Logs { recipe, .. } => ControlRep::Logs {
             recipe: recipe.clone(),

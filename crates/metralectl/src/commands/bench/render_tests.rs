@@ -42,7 +42,7 @@ fn info() -> BenchNodeInfo {
             temperature_c: Metric::Unsupported,
             memory_total_bytes: Metric::reading(128.0 * 1024.0 * 1024.0 * 1024.0),
             memory_used_frac: Metric::reading(0.1),
-            memory_is_unified: true,
+            memory_is_unified: Some(true),
         }),
         thermal: Some(metralectl_protocol::msg::bench_node::HostThermal {
             chassis_temps_c: vec![65.0, 62.0],

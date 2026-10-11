@@ -12,8 +12,10 @@
 //! teaches an operator to distrust it, and the one time throughput really is
 //! zero they will not believe the number.
 
+use crate::measure;
 use anyhow::Result;
 use metralectl_core::metrics::{self, Scrape};
+use metralectl_protocol::msg::LaunchReading;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -28,39 +30,6 @@ pub trait MetricsSource: Send + Sync {
     /// If the port is not answering, or does not answer in time — which is the
     /// ordinary state of a model that is still loading its weights.
     fn scrape(&self, port: u16) -> Result<String>;
-}
-
-/// One reading, ready to render.
-#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct LaunchStats {
-    /// Requests served since the engine started.
-    pub requests_total: Option<f64>,
-    /// Requests in flight right now.
-    pub requests_active: Option<f64>,
-    /// Generated tokens per second, over the interval between the last two
-    /// samples.
-    pub decode_tokens_per_s: Option<f64>,
-    /// Prompt tokens per second, likewise.
-    pub prompt_tokens_per_s: Option<f64>,
-    /// Median time to first token, seconds, estimated from the histogram.
-    pub ttft_p50_s: Option<f64>,
-    /// 90th percentile time to first token, seconds.
-    pub ttft_p90_s: Option<f64>,
-    /// Share of drafted tokens accepted, 0..1, when the model speculates.
-    pub accept_rate: Option<f64>,
-    /// Share of prefix-cache lookups that hit, 0..1.
-    pub prefix_hit_rate: Option<f64>,
-    /// Mean prompt tokens per request completed in the window.
-    ///
-    /// `None` when no request completed: a mean over nothing is undefined, and
-    /// 0 would assert that the traffic carried no prompt — a measurement nobody
-    /// made. See `metrics::mean_per_request` for the bias this knowingly has.
-    pub isl_mean: Option<f64>,
-    /// Mean generated tokens per request completed in the window, likewise.
-    pub osl_mean: Option<f64>,
-    /// Seconds the rates were measured over, so the page can say how fresh
-    /// they are rather than implying they are instantaneous.
-    pub window_s: Option<f64>,
 }
 
 /// Samples one launch, remembering enough to compute rates.
@@ -100,25 +69,10 @@ impl LaunchSampler {
     /// # Errors
     /// If the model is not answering — which is the ordinary state of one that
     /// is still loading.
-    pub fn sample(&self, port: u16, now: Instant) -> Result<LaunchStats> {
+    pub fn sample(&self, port: u16, now: Instant) -> Result<LaunchReading> {
         let body = self.source.scrape(port)?;
         let current = metrics::parse(&body);
-
-        let mut out = LaunchStats {
-            requests_total: current.get("metrale_requests_total"),
-            requests_active: current.get("metrale_requests_active"),
-            ttft_p50_s: current
-                .buckets
-                .get("metrale_time_to_first_token_seconds")
-                .and_then(|b| metrics::quantile(b, 0.50)),
-            ttft_p90_s: current
-                .buckets
-                .get("metrale_time_to_first_token_seconds")
-                .and_then(|b| metrics::quantile(b, 0.90)),
-            accept_rate: accept_rate(&current),
-            prefix_hit_rate: current.get("metrale_prefix_cache_hit_rate"),
-            ..LaunchStats::default()
-        };
+        let mut out = measure::point_in_time(&current);
 
         let mut slot = self.last.lock().expect("sampler lock poisoned");
         if let Some((then, previous)) = slot.as_ref() {
@@ -166,15 +120,6 @@ fn mean_over(previous: &Scrape, current: &Scrape, name: &str) -> Option<f64> {
         previous.get("metrale_requests_total")?,
         current.get("metrale_requests_total")?,
     )
-}
-
-/// Draft acceptance, read per label because the sum of accepts and rejects is
-/// a number with no meaning.
-fn accept_rate(s: &Scrape) -> Option<f64> {
-    const METRIC: &str = "metrale_spec_decode_verify_total";
-    let accepted = s.sum_where(METRIC, "outcome", "accept")?;
-    let total = s.get(METRIC)?;
-    metrics::accept_rate(accepted, total)
 }
 
 #[cfg(test)]

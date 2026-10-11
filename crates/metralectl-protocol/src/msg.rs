@@ -392,6 +392,32 @@ pub struct LaunchReading {
     /// Seconds the rates cover, so the page can say how fresh they are rather
     /// than implying they are instantaneous.
     pub window_s: Option<f64>,
+    /// Prompt tokens since the engine started: the raw counter, measured.
+    ///
+    /// This and every field below are defaulted, so a reading from an agent
+    /// built before they existed decodes as "did not say".
+    #[serde(default)]
+    pub prompt_tokens_total: Option<u64>,
+    /// Generated tokens since the engine started: the raw counter, measured.
+    #[serde(default)]
+    pub generation_tokens_total: Option<u64>,
+    /// Median time per output token after the first, seconds, from the
+    /// engine's per-request histogram.
+    #[serde(default)]
+    pub tpot_p50_s: Option<f64>,
+    /// Median time from receipt to first scheduled prefill, seconds.
+    #[serde(default)]
+    pub queue_time_p50_s: Option<f64>,
+    /// GPU-rail energy since the engine's first sample, millijoules; exported
+    /// only when the engine runs with device telemetry on.
+    #[serde(default)]
+    pub gpu_energy_mj_total: Option<u64>,
+    /// Where the engine has got to, from its startup phase.
+    #[serde(default)]
+    pub phase: Option<crate::telemetry::LaunchPhase>,
+    /// The commit the engine was built from, when its build was stamped.
+    #[serde(default)]
+    pub engine_commit: Option<String>,
 }
 
 /// A launch currently running.

@@ -335,7 +335,10 @@ impl LocalControl<'_> {
             }),
             ControlReq::Stats { recipe } => {
                 let stats = self.stats(&recipe)?;
-                Ok(ControlRep::Stats { recipe, stats })
+                Ok(ControlRep::Stats {
+                    recipe,
+                    stats: Box::new(stats),
+                })
             }
             ControlReq::Logs { recipe, lines } => {
                 let tail = self.logs(&recipe, lines)?;

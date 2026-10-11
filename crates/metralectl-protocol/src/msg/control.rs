@@ -135,8 +135,9 @@ pub enum ControlRep {
         recipe: RecipeId,
         /// The reading. Every field is optional: absent means the engine does
         /// not report it, or that there is not yet a second sample to
-        /// difference against — never zero.
-        stats: LaunchReading,
+        /// difference against — never zero. Boxed: it is by far the largest
+        /// answer, and the wire form is the same.
+        stats: Box<LaunchReading>,
     },
     /// The tail of a launch's log on the target.
     Logs {

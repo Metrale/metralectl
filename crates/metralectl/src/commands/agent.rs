@@ -265,7 +265,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
         Arc::clone(&launcher),
         Some(Box::new(crate::launchtelemetry::LocalLaunchTelemetry::new(
             Arc::clone(&runner),
-            metralectl_agent::launchstats::LaunchSampler::new(Box::new(
+            metralectl_control::launchstats::LaunchSampler::new(Box::new(
                 crate::httpscrape::HttpScraper,
             )),
         ))),
@@ -287,7 +287,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
         fleet: Some(Box::new(FleetHandle(Arc::clone(&fleet)))),
         telemetry: Some(Box::new(crate::launchtelemetry::LocalLaunchTelemetry::new(
             Arc::clone(&runner),
-            metralectl_agent::launchstats::LaunchSampler::new(Box::new(
+            metralectl_control::launchstats::LaunchSampler::new(Box::new(
                 crate::httpscrape::HttpScraper,
             )),
         ))),

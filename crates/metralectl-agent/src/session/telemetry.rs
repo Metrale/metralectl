@@ -13,7 +13,7 @@ impl Session<'_> {
             Ok(stats) => vec![ServerMsg::Stats {
                 id,
                 recipe: recipe_id.clone(),
-                stats,
+                stats: Box::new(stats),
                 // This machine answering its own browser directly; see the
                 // note in `session/launch.rs`.
                 on: None,

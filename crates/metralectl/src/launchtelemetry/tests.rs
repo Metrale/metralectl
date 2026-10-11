@@ -8,7 +8,7 @@
 //! and what stops it reporting another model's numbers under this one's name.
 
 use super::*;
-use metralectl_agent::launchstats::MetricsSource;
+use metralectl_control::launchstats::MetricsSource;
 use metralectl_core::io::RecordingRunner;
 use metralectl_core::io::process::Output;
 use std::sync::Mutex as StdMutex;
@@ -41,7 +41,7 @@ fn recipe_id() -> RecipeId {
 fn telemetry(runner: &Arc<RecordingRunner>) -> LocalLaunchTelemetry {
     LocalLaunchTelemetry::new(
         Arc::clone(runner) as Arc<dyn ProcessRunner>,
-        metralectl_agent::launchstats::LaunchSampler::new(Box::new(PortSpy(StdMutex::new(
+        metralectl_control::launchstats::LaunchSampler::new(Box::new(PortSpy(StdMutex::new(
             Vec::new(),
         )))),
     )

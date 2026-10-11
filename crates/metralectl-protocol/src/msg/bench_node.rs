@@ -25,7 +25,10 @@ pub struct GpuInfo {
     pub temperature_c: Metric,
     pub memory_total_bytes: Metric,
     pub memory_used_frac: Metric,
-    pub memory_is_unified: bool,
+    /// Whether the accelerator uses host memory, as measured; `None` when
+    /// neither its framebuffer nor host memory could be read.
+    #[serde(default)]
+    pub memory_is_unified: Option<bool>,
 }
 
 /// The live thermal and capacity facts a speed-class equivalence check

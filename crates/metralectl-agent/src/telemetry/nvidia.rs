@@ -13,77 +13,10 @@
 //! so there is no framebuffer to report — the pool is the host's, and it comes
 //! from `/proc/meminfo` instead.
 
-/// The query we ask for, in this order.
-pub const QUERY: &str =
-    "name,memory.total,memory.used,utilization.gpu,clocks.current.sm,temperature.gpu,power.draw";
-
-/// Arguments for a telemetry sample.
-pub fn argv() -> Vec<String> {
-    vec![
-        "nvidia-smi".into(),
-        format!("--query-gpu={QUERY}"),
-        "--format=csv,noheader".into(),
-    ]
-}
-
-/// One accelerator's readings, as far as it reports them.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Reading {
-    /// Device name.
-    pub name: Option<String>,
-    /// Framebuffer total, bytes. Absent on unified-memory parts.
-    pub memory_total_bytes: Option<u64>,
-    /// Framebuffer in use, bytes. Absent on unified-memory parts.
-    pub memory_used_bytes: Option<u64>,
-    /// Utilisation, percent.
-    pub util_pct: Option<f64>,
-    /// Current clock, MHz.
-    pub sm_clock_mhz: Option<u32>,
-    /// Temperature, Celsius.
-    pub temperature_c: Option<f64>,
-    /// Power draw, Watts.
-    pub power_w: Option<f64>,
-}
-
-/// A field nvidia-smi declines to answer.
-///
-/// It uses several spellings depending on why, and they all mean the same
-/// thing to us: there is no number here. Treating any of them as a value is
-/// how a dashboard ends up reporting zeros as measurements.
-fn absent(raw: &str) -> bool {
-    let t = raw.trim();
-    t.is_empty()
-        || t.eq_ignore_ascii_case("[N/A]")
-        || t.eq_ignore_ascii_case("N/A")
-        || t.eq_ignore_ascii_case("[Not Supported]")
-        || t.eq_ignore_ascii_case("[Unknown Error]")
-        || t.eq_ignore_ascii_case("[Insufficient Permissions]")
-}
-
-/// Strip a trailing unit and parse the number in front of it.
-fn number(raw: &str) -> Option<f64> {
-    if absent(raw) {
-        return None;
-    }
-    raw.split_whitespace().next()?.parse::<f64>().ok()
-}
-
-/// Parse one line of CSV output.
-pub fn parse(line: &str) -> Reading {
-    let f: Vec<&str> = line.split(',').collect();
-    let at = |i: usize| f.get(i).copied().unwrap_or("");
-    let mib_to_bytes = |v: f64| (v * 1024.0 * 1024.0) as u64;
-
-    Reading {
-        name: (!absent(at(0))).then(|| at(0).trim().to_string()),
-        memory_total_bytes: number(at(1)).map(mib_to_bytes),
-        memory_used_bytes: number(at(2)).map(mib_to_bytes),
-        util_pct: number(at(3)),
-        sm_clock_mhz: number(at(4)).map(|v| v as u32),
-        temperature_c: number(at(5)),
-        power_w: number(at(6)),
-    }
-}
+pub use metralectl_core::hardware::capture::{
+    NVIDIA_SAMPLE_QUERY as QUERY, NvidiaSample as Reading, nvidia_sample_argv as argv,
+    parse_nvidia_sample as parse,
+};
 
 #[cfg(test)]
 mod tests {
@@ -167,14 +100,12 @@ fn run(args: &[&str]) -> Option<String> {
         .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// `(name, driver_version, count)` of the first GPU, each as `nvidia-smi`
-/// answered it.
-pub fn identity() -> Option<(String, String, u32)> {
+/// The first GPU's identity, as far as `nvidia-smi` answered it.
+pub fn identity() -> Option<metralectl_core::hardware::capture::NvidiaGpu> {
     use metralectl_core::hardware::capture::{nvidia_identity_argv, parse_nvidia_identity};
     let argv = nvidia_identity_argv();
     let args: Vec<&str> = argv[1..].iter().map(String::as_str).collect();
-    let first = parse_nvidia_identity(&run(&args)?).into_iter().next()?;
-    Some((first.name?, first.driver?, first.count?))
+    parse_nvidia_identity(&run(&args)?).into_iter().next()
 }
 
 /// The CUDA version the driver banner names (`13.0`); `None` when unknown.

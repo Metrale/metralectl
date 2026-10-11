@@ -9,38 +9,24 @@ use metralectl_core::io::ProcessRunner;
 use metralectl_protocol::telemetry::{DeviceStats, TelemetryCaps};
 
 /// Clock below this while work is in flight counts as clamped.
-///
-/// The number matters. A GB10 idles around 200 MHz and runs above 2000 under
-/// load; a clamp at 513 MHz once made every throughput measurement read two to
-/// three times low while every correctness check stayed green. A threshold in
-/// between catches that without firing at idle.
-pub const DEFAULT_HEALTHY_CLOCK_MHZ: u32 = 1500;
+pub use metralectl_control::measure::HEALTHY_CLOCK_MHZ as DEFAULT_HEALTHY_CLOCK_MHZ;
+
+/// One device sample from the vendor tool; `None` when it did not answer.
+fn device_sample(runner: &dyn ProcessRunner) -> Option<nvidia::Reading> {
+    let out = runner.run(&nvidia::argv()).ok().filter(|o| o.success())?;
+    Some(nvidia::parse(out.stdout.lines().next().unwrap_or_default()))
+}
 
 /// Ask the machine what it can actually answer.
 ///
 /// Run once at startup. Capabilities are earned by a reading, never assumed:
 /// on unified-memory hardware `nvidia-smi` returns `[N/A]` for memory, and a
-/// dashboard that assumed otherwise would render zeros as measurements.
+/// dashboard that assumed otherwise would render zeros as measurements. No
+/// engine has been scraped at startup, so the engine-metrics capability is not
+/// earned here; `metralectl_control::measure::caps` grants it to a host that
+/// passes an engine scrape.
 pub fn probe(runner: &dyn ProcessRunner) -> TelemetryCaps {
-    let Ok(out) = runner.run(&nvidia::argv()) else {
-        return TelemetryCaps::default();
-    };
-    if !out.success() {
-        return TelemetryCaps::default();
-    }
-    let reading = nvidia::parse(out.stdout.lines().next().unwrap_or_default());
-
-    TelemetryCaps {
-        gpu_util: reading.util_pct.is_some(),
-        sm_clock: reading.sm_clock_mhz.is_some(),
-        temperature: reading.temperature_c.is_some(),
-        power: reading.power_w.is_some(),
-        framebuffer_memory: reading.memory_total_bytes.is_some(),
-        // Host memory is the meaningful figure when there is no framebuffer.
-        unified_memory: meminfo::available(),
-        engine_metrics: false,
-        sm_clock_healthy_mhz: reading.sm_clock_mhz.map(|_| DEFAULT_HEALTHY_CLOCK_MHZ),
-    }
+    metralectl_control::measure::caps(device_sample(runner).as_ref(), meminfo::available(), None)
 }
 
 /// What this machine's accelerator calls itself, for display.
@@ -54,11 +40,7 @@ pub fn probe(runner: &dyn ProcessRunner) -> TelemetryCaps {
 /// An empty string is not a name, and rendering one puts a separator with
 /// nothing after it in the interface.
 pub fn accelerator_name(runner: &dyn ProcessRunner) -> Option<String> {
-    let out = runner.run(&nvidia::argv()).ok()?;
-    if !out.success() {
-        return None;
-    }
-    nvidia::parse(out.stdout.lines().next().unwrap_or_default())
+    device_sample(runner)?
         .name
         .map(|n| n.trim().to_owned())
         .filter(|n| !n.is_empty())
@@ -70,44 +52,14 @@ pub fn accelerator_name(runner: &dyn ProcessRunner) -> Option<String> {
 /// clock meaningful: 208 MHz at idle is correct, and the same figure under load
 /// is a problem.
 pub fn sample_device(runner: &dyn ProcessRunner, caps: &TelemetryCaps, busy: bool) -> DeviceStats {
-    let reading = runner
-        .run(&nvidia::argv())
-        .ok()
-        .filter(|o| o.success())
-        .map(|o| nvidia::parse(o.stdout.lines().next().unwrap_or_default()))
-        .unwrap_or_default();
-
-    // Idle is a verdict, not a gap: a low clock with nothing in flight is not
-    // a clamp. Without a clock or a threshold there is no verdict at all.
-    let clamped = match (busy, reading.sm_clock_mhz, caps.sm_clock_healthy_mhz) {
-        (true, Some(mhz), Some(healthy)) => Some(mhz < healthy),
-        (false, Some(_), Some(_)) => Some(false),
-        _ => None,
-    };
-
-    let (total, used, unified) = if caps.framebuffer_memory {
-        (
-            reading.memory_total_bytes,
-            reading.memory_used_bytes,
-            Some(false),
-        )
-    } else if caps.unified_memory {
-        let m = meminfo::read();
-        (m.total_bytes, m.used_bytes, Some(true))
+    let reading = device_sample(runner).unwrap_or_default();
+    // Host memory is read only where it stands in for the accelerator's.
+    let host = if caps.framebuffer_memory || !caps.unified_memory {
+        meminfo::MemInfo::default()
     } else {
-        (None, None, None)
+        meminfo::read()
     };
-
-    DeviceStats {
-        gpu_util_pct: caps.gpu_util.then_some(reading.util_pct).flatten(),
-        sm_clock_mhz: caps.sm_clock.then_some(reading.sm_clock_mhz).flatten(),
-        sm_clock_clamped: clamped,
-        temperature_c: caps.temperature.then_some(reading.temperature_c).flatten(),
-        power_w: caps.power.then_some(reading.power_w).flatten(),
-        memory_total_bytes: total,
-        memory_used_bytes: used,
-        memory_is_unified: unified,
-    }
+    metralectl_control::measure::device(&reading, caps, host, busy)
 }
 
 #[cfg(test)]

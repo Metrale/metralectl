@@ -244,7 +244,7 @@ fn node_info_round_trips() {
             temperature_c: Metric::Reading { value: 55.0 },
             memory_total_bytes: Metric::Reading { value: 1.3e11 },
             memory_used_frac: Metric::Reading { value: 0.06 },
-            memory_is_unified: true,
+            memory_is_unified: Some(true),
         }),
         alerts: vec![],
         hardware_class: Some("gb10".into()),
