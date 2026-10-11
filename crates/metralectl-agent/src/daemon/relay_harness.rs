@@ -241,13 +241,19 @@ pub(super) fn claim(node: NodeId, addresses: Vec<NodeAddress>, reachable: bool) 
     }
 }
 
-/// The production origin-side driver, on this test's runtime.
+/// The production origin-side driver, on this test's runtime, sending each
+/// request exactly once — the suites here assert what ONE send does; the
+/// retry policy has its own suite (`control::retry`).
 pub(super) fn driver(a: &TestAgent, port: u16) -> crate::peer::control::ControlDriver {
     crate::peer::control::ControlDriver::new(
         Arc::clone(&a.identity),
         a.pins.clone(),
         Arc::clone(&a.fleet),
         port,
+        crate::control::retry::RetryBudget {
+            attempts: std::num::NonZeroU32::MIN,
+            pause: Duration::ZERO,
+        },
     )
 }
 
@@ -339,6 +345,7 @@ pub(super) async fn spawn_fake_peer(
                                     node,
                                     via: Some(local),
                                     detail: "a terminal peer received a forward".to_owned(),
+                                    transient: false,
                                 },
                             },
                         },

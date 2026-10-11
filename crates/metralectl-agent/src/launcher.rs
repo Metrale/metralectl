@@ -28,6 +28,7 @@ pub struct Started {
 }
 
 pub mod docker;
+pub mod idempotent;
 
 pub use docker::DockerLauncher;
 
@@ -40,14 +41,20 @@ pub trait Launcher: Send + Sync {
         overrides: &BTreeMap<String, ScalarValue>,
     ) -> Result<Preview, AgentError>;
 
-    /// Start a recipe.
+    /// Start a recipe — idempotently, from the launcher's own state.
+    ///
+    /// The same launch already running is returned as it is, never started a
+    /// second time: this is what makes a retried `Launch` after a lost reply,
+    /// or one sent after the agent restarted, safe without a token. A
+    /// DIFFERENT launch of the recipe already running is `AlreadyRunning`.
     fn launch(
         &self,
         recipe: &Recipe,
         overrides: &BTreeMap<String, ScalarValue>,
     ) -> Result<Started, AgentError>;
 
-    /// Stop a recipe by name.
+    /// Stop a recipe by name. Nothing of it running is success: the state a
+    /// stop asks for already holds.
     fn stop(&self, recipe: &str) -> Result<(), AgentError>;
 
     /// What is currently running.

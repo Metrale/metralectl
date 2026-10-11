@@ -173,7 +173,9 @@ async fn a_fabricated_vouch_writes_no_pin_and_is_refused_at_the_relay() {
     match rep {
         ControlRep::Refused {
             by,
-            error: AgentError::RelayRefused { node, via, detail },
+            error: AgentError::RelayRefused {
+                node, via, detail, ..
+            },
         } => {
             assert_eq!(by, relay.id(), "the honest relay refuses under R3");
             assert_eq!(node, phantom);
@@ -407,7 +409,9 @@ async fn a_relay_the_origin_cannot_dial_is_named_in_the_refusal() {
         .await
         .expect_err("nothing is listening; the dial cannot succeed");
     match err {
-        AgentError::RelayRefused { node, via, detail } => {
+        AgentError::RelayRefused {
+            node, via, detail, ..
+        } => {
             assert_eq!(node, ghost.id(), "`node` stays the target");
             assert_eq!(
                 via,

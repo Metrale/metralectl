@@ -12,6 +12,15 @@ use metralectl_core::docker::profile::{NvidiaDevices, ROOTLESS_V1};
 use metralectl_core::io::{ProcessRunner, StdProcessRunner};
 use std::sync::Arc;
 
+/// How hard a control request to another machine is tried: three sends, two
+/// seconds apart. A lost `Launch` spends one of them on the `Status` read that
+/// must precede a second `Launch`, so it is sent at most twice.
+const CONTROL_RETRY: metralectl_agent::control::retry::RetryBudget =
+    metralectl_agent::control::retry::RetryBudget {
+        attempts: std::num::NonZeroU32::new(3).expect("three is non-zero"),
+        pause: std::time::Duration::from_secs(2),
+    };
+
 /// Whether this machine can actually run a recipe, and why not if it cannot.
 ///
 /// Probed once at startup and reported to the client, so a browser can say
@@ -229,18 +238,24 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
         metralectl_agent::peer::DEFAULT_PEER_PORT,
     ));
 
-    // The peer channel's control core. Its own instances of the same
-    // stateless launcher and telemetry the browser state holds, because the
-    // listener outlives any session and cannot borrow from `AgentState` —
-    // the checks are identical because both are the one `LocalControl`.
+    // ONE launcher for the whole agent. Its per-recipe gates serialise a
+    // launch against a stop or a second launch of the same recipe, and that
+    // only holds between callers that share it — a browser launch and a
+    // relayed one racing through two instances could both find the recipe
+    // not running and both start it.
+    let launcher: Arc<dyn metralectl_agent::launcher::Launcher> = Arc::new(DockerLauncher::new(
+        Arc::clone(&runner),
+        hostinfo::snapshot()?,
+        &ROOTLESS_V1,
+        Box::new(NvidiaDevices),
+    ));
+
+    // The peer channel's control core. Its own telemetry instance, because
+    // the listener outlives any session and cannot borrow from `AgentState`
+    // — the checks are identical because both are the one `LocalControl`.
     let control_host = Arc::new(metralectl_agent::control::ControlHost::new(
         crate::commands::registry_set()?,
-        std::sync::Arc::new(DockerLauncher::new(
-            Arc::clone(&runner),
-            hostinfo::snapshot()?,
-            &ROOTLESS_V1,
-            Box::new(NvidiaDevices),
-        )),
+        Arc::clone(&launcher),
         Some(Box::new(crate::launchtelemetry::LocalLaunchTelemetry::new(
             Arc::clone(&runner),
             metralectl_agent::launchstats::LaunchSampler::new(Box::new(
@@ -253,12 +268,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
 
     let state = Arc::new(AgentState {
         registry: crate::commands::registry_set()?,
-        launcher: std::sync::Arc::new(DockerLauncher::new(
-            Arc::clone(&runner),
-            hostinfo::snapshot()?,
-            &ROOTLESS_V1,
-            Box::new(NvidiaDevices),
-        )),
+        launcher,
         token: tok.clone().unwrap_or_default(),
         can_launch: can_launch.clone(),
         accelerator: accelerator.clone(),
@@ -279,6 +289,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
                 metralectl_agent::identity::PinStore::new(&config_dir),
                 Arc::clone(&fleet),
                 metralectl_agent::peer::DEFAULT_PEER_PORT,
+                CONTROL_RETRY,
             ),
         )),
         events: events.clone(),

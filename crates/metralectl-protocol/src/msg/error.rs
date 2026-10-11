@@ -117,6 +117,18 @@ pub enum AgentError {
         via: Option<crate::fleet::NodeId>,
         /// The relay's stated reason.
         detail: String,
+        /// Whether the relay's own leg to the target was LOST — its dial
+        /// failed or its answer budget elapsed — rather than a decision it
+        /// made. A lost leg leaves the target's state unknown (a launch may
+        /// have started), so the origin retries it within its budget, reading
+        /// `Status` before a second `Launch`; a decision (no grant, target not
+        /// pinned) is never retried.
+        ///
+        /// `false` from a build that predates the field, which only costs a
+        /// retry — never a duplicate launch. Defaulted for the same wire
+        /// reason as `via`.
+        #[serde(default)]
+        transient: bool,
     },
 
     /// The TARGET itself declined to be controlled by the adjacent sender:
@@ -131,3 +143,7 @@ pub enum AgentError {
         reason: String,
     },
 }
+
+#[cfg(test)]
+#[path = "error_tests.rs"]
+mod tests;

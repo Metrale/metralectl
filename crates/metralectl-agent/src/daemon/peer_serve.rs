@@ -218,14 +218,19 @@ async fn relay_control(
     req: ControlReq,
 ) -> ControlRep {
     let local = ctx.identity.id();
-    let refused = |detail: String| ControlRep::Refused {
+    // `transient` separates this relay's DECISIONS (no grant, target not
+    // pinned, no address) from its forwarding leg being LOST, after which the
+    // target's state is unknown and the origin may retry.
+    let answer = |detail: String, transient: bool| ControlRep::Refused {
         by: local,
         error: AgentError::RelayRefused {
             node,
             via: Some(local),
             detail,
+            transient,
         },
     };
+    let refused = |detail: String| answer(detail, false);
 
     // R2 — the requester's grant, re-read NOW, checked here as well as at
     // the target: a relay that forwarded for any pinned peer would let an
@@ -281,7 +286,7 @@ async fn relay_control(
     .await
     {
         Ok(rep) => rep,
-        Err(e) => refused(format!("{e:#}")),
+        Err(e) => answer(format!("{e:#}"), true),
     }
 }
 

@@ -464,6 +464,7 @@ fn the_routing_errors_carry_machine_readable_codes_and_round_trip() {
             node: peer(),
             via: Some(relay_peer()),
             detail: "requester lacks the controller grant on this machine".into(),
+            transient: false,
         },
         AgentError::ControlRefused {
             node: peer(),

@@ -11,10 +11,11 @@
 
 use super::link::{self, DIAL_TIMEOUT, SelfIntro, exchange_hello};
 use super::wire::{PEER_PROTOCOL_MAX, PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame};
+use crate::control::retry::{Attempt, RetryBudget, drive};
 use crate::identity::{Identity, PinStore};
 use anyhow::{Result, bail};
 use metralectl_protocol::fleet::NodeId;
-use metralectl_protocol::msg::{ControlRep, ControlReq};
+use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -147,15 +148,18 @@ where
 /// handle and blocks per call, so the session stays synchronous and
 /// transport-free. Every decision about WHERE a request goes is
 /// [`LocalFleet::plan_control_route`] (rules O2–O5) — the same function the
-/// listing's `reached_via` reflects — and this type only executes the plan.
+/// listing's `reached_via` reflects — and every decision about whether to
+/// send AGAIN is [`ControlRun`]; this type only executes them.
 ///
 /// [`ControlRelay`]: crate::session::ControlRelay
 /// [`LocalFleet::plan_control_route`]: crate::fleet::LocalFleet::plan_control_route
+/// [`ControlRun`]: crate::control::retry::ControlRun
 pub struct ControlDriver {
     identity: Arc<Identity>,
     pins: PinStore,
     fleet: Arc<crate::fleet::LocalFleet>,
     peer_port: u16,
+    retry: RetryBudget,
 }
 
 impl std::fmt::Debug for ControlDriver {
@@ -165,64 +169,58 @@ impl std::fmt::Debug for ControlDriver {
 }
 
 impl ControlDriver {
-    /// Build a driver.
+    /// Build a driver. `retry` bounds every request it carries.
     #[must_use]
     pub fn new(
         identity: Arc<Identity>,
         pins: PinStore,
         fleet: Arc<crate::fleet::LocalFleet>,
         peer_port: u16,
+        retry: RetryBudget,
     ) -> Self {
         Self {
             identity,
             pins,
             fleet,
             peer_port,
+            retry,
         }
     }
-}
 
-impl crate::session::ControlRelay for ControlDriver {
-    fn control<'a>(
-        &'a self,
-        target: NodeId,
-        req: ControlReq,
-    ) -> std::pin::Pin<
-        Box<
-            dyn std::future::Future<
-                    Output = Result<
-                        (ControlRep, Option<NodeId>),
-                        metralectl_protocol::msg::AgentError,
-                    >,
-                > + Send
-                + 'a,
-        >,
-    > {
-        Box::pin(async move {
-            use metralectl_protocol::msg::AgentError;
-            let route = self.fleet.plan_control_route(target, self.peer_port)?;
-            let intro = SelfIntro::new(self.fleet.can_launch(), "");
-            match route {
-                crate::fleet::routing::ControlRoute::Direct { addr } => send_control(
-                    &self.identity,
-                    self.pins.clone(),
-                    addr,
-                    target,
-                    &intro,
-                    &req,
-                    // The terminal answer budget is the same whichever leg
-                    // writes the frame: it bounds the TARGET's execution.
-                    RELAY_ANSWER_BUDGET,
-                )
-                .await
-                .map(|rep| (rep, None))
+    /// One send: route, dial, ask.
+    ///
+    /// The route is planned afresh for every send, so a retry follows a
+    /// route that changed under it. Having no route at all is the `Err`, and
+    /// no retry can change it; a send nobody answered is [`Attempt::Lost`].
+    async fn attempt(&self, target: NodeId, req: ControlReq) -> Result<Attempt, AgentError> {
+        let route = self.fleet.plan_control_route(target, self.peer_port)?;
+        let intro = SelfIntro::new(self.fleet.can_launch(), "");
+        Ok(match route {
+            crate::fleet::routing::ControlRoute::Direct { addr } => match send_control(
+                &self.identity,
+                self.pins.clone(),
+                addr,
+                target,
+                &intro,
+                &req,
+                // The terminal answer budget is the same whichever leg
+                // writes the frame: it bounds the TARGET's execution.
+                RELAY_ANSWER_BUDGET,
+            )
+            .await
+            {
+                Ok(rep) => Attempt::Answered { rep, via: None },
                 // A pinned target we could not reach directly: no relay was
                 // asked, so the operator's fix is waking the target.
-                .map_err(|e| AgentError::NotRoutable {
-                    node: target,
-                    reason: format!("could not reach it directly: {e:#}"),
-                }),
-                crate::fleet::routing::ControlRoute::Via { relay, addr } => send_control_to(
+                Err(e) => Attempt::Lost {
+                    error: AgentError::NotRoutable {
+                        node: target,
+                        reason: format!("could not reach it directly: {e:#}"),
+                    },
+                },
+            },
+            crate::fleet::routing::ControlRoute::Via { relay, addr } => {
+                match send_control_to(
                     &self.identity,
                     self.pins.clone(),
                     addr,
@@ -232,13 +230,37 @@ impl crate::session::ControlRelay for ControlDriver {
                     &req,
                 )
                 .await
-                .map(|rep| (rep, Some(relay)))
-                .map_err(|e| AgentError::RelayRefused {
-                    node: target,
-                    via: Some(relay),
-                    detail: format!("could not ask {} to forward: {e:#}", relay.short()),
-                }),
+                {
+                    Ok(rep) => Attempt::Answered {
+                        rep,
+                        via: Some(relay),
+                    },
+                    Err(e) => Attempt::Lost {
+                        error: AgentError::RelayRefused {
+                            node: target,
+                            via: Some(relay),
+                            detail: format!("could not ask {} to forward: {e:#}", relay.short()),
+                            transient: true,
+                        },
+                    },
+                }
             }
+        })
+    }
+}
+
+impl crate::session::ControlRelay for ControlDriver {
+    fn control<'a>(
+        &'a self,
+        target: NodeId,
+        req: ControlReq,
+    ) -> crate::BoxFut<'a, Result<(ControlRep, Option<NodeId>), AgentError>> {
+        Box::pin(async move {
+            drive(target, req, self.retry, |req| {
+                Box::pin(self.attempt(target, req))
+            })
+            .await?
+            .into_relay()
         })
     }
 }

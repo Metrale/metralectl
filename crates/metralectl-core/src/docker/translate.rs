@@ -268,7 +268,10 @@ fn check_node_count(recipe: &Recipe, placement: &Placement) -> Result<(), Transl
 }
 
 /// Deterministic container name, unique per rank.
-fn container_name(recipe: &str, placement: &Placement) -> String {
+///
+/// Public because a launcher deciding whether a recipe is already running
+/// must look for the name this rendered, not a copy of the rule.
+pub fn container_name(recipe: &str, placement: &Placement) -> String {
     match placement {
         Placement::Solo => format!("metrale-{recipe}"),
         Placement::Rank { rank, .. } => format!("metrale-{recipe}-rank{rank}"),

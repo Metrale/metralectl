@@ -2,27 +2,35 @@
 
 //! The production launcher: translate a recipe, then run the command.
 
+use super::idempotent::{self, LaunchedAs, PsRow};
 use super::{Launcher, Preview, Started};
 use metralectl_core::chain::UserConfig;
 use metralectl_core::docker::collective::NcclRoce;
 use metralectl_core::docker::profile::{DeviceProfile, LaunchProfile};
-use metralectl_core::docker::translate::{
-    LABEL_MANAGED, LABEL_RECIPE, LaunchContext, Placement, translate,
-};
+use metralectl_core::docker::translate::{LABEL_MANAGED, LaunchContext, Placement, translate};
 use metralectl_core::host::HostSnapshot;
 use metralectl_core::io::ProcessRunner;
 use metralectl_core::{Recipe, ScalarValue};
 use metralectl_protocol::RecipeId;
 use metralectl_protocol::msg::{AgentError, RunningLaunch};
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 /// Launches recipes through the docker CLI.
+///
+/// One per agent process: the per-recipe gates below only serialise the
+/// requests that share them, so every caller (browser session and peer
+/// channel alike) must hold the same instance.
 pub struct DockerLauncher {
     runner: Arc<dyn ProcessRunner>,
     host: HostSnapshot,
     profile: &'static LaunchProfile,
     devices: Box<dyn DeviceProfile>,
+    /// One gate per recipe, held by a launch or stop from its first `docker
+    /// ps` to its last command, so two requests for one recipe cannot both
+    /// see "not running" and both start it. Recipes are a closed corpus, so
+    /// the map is bounded by it.
+    gates: Mutex<BTreeMap<String, Arc<Mutex<()>>>>,
 }
 
 impl DockerLauncher {
@@ -38,7 +46,62 @@ impl DockerLauncher {
             host,
             profile,
             devices,
+            gates: Mutex::new(BTreeMap::new()),
         }
+    }
+
+    /// The gate for `recipe`. A poisoned gate only means an earlier launch
+    /// panicked; docker, not the gate, holds the state, so it is reused.
+    fn gate(&self, recipe: &str) -> Arc<Mutex<()>> {
+        let mut gates = self.gates.lock().unwrap_or_else(PoisonError::into_inner);
+        Arc::clone(gates.entry(recipe.to_owned()).or_default())
+    }
+
+    /// Every running container, in the shape the idempotency decisions read.
+    fn ps(&self) -> Result<Vec<PsRow>, AgentError> {
+        let out = self
+            .runner
+            .run(&[
+                "docker".into(),
+                "ps".into(),
+                "--format".into(),
+                idempotent::ps_format(),
+            ])
+            .map_err(|e| AgentError::DockerUnavailable {
+                detail: format!("{e:#}"),
+            })?;
+        if !out.success() {
+            return Err(AgentError::DockerUnavailable {
+                detail: out.stderr.trim().to_string(),
+            });
+        }
+        idempotent::parse_ps(&out.stdout).map_err(|detail| AgentError::LaunchFailed { detail })
+    }
+
+    /// What a running container was started with.
+    fn inspect(&self, id: &str) -> Result<LaunchedAs, AgentError> {
+        let out = self
+            .runner
+            .run(&[
+                "docker".into(),
+                "inspect".into(),
+                "--format".into(),
+                idempotent::INSPECT_FORMAT.into(),
+                id.to_owned(),
+            ])
+            .map_err(|e| AgentError::LaunchFailed {
+                detail: format!("{e:#}"),
+            })?;
+        if !out.success() {
+            return Err(AgentError::LaunchFailed {
+                detail: format!(
+                    "docker inspect exited {}: {}",
+                    out.status,
+                    out.stderr.trim()
+                ),
+            });
+        }
+        idempotent::parse_inspect(&out.stdout).map_err(|detail| AgentError::LaunchFailed { detail })
     }
 
     fn plan(
@@ -63,8 +126,7 @@ impl DockerLauncher {
             &ctx,
         )
         .map_err(|e| AgentError::NotLaunchable {
-            recipe: RecipeId::parse(&recipe.name)
-                .unwrap_or_else(|_| RecipeId::parse("unknown").expect("literal is a valid id")),
+            recipe: recipe_id(recipe),
             reason: format!("{e:#}"),
         })?;
         // The agent removes a container by name before it starts one, and on
@@ -140,7 +202,30 @@ impl Launcher for DockerLauncher {
             }
         }
 
-        // Clear a previous container of the same name. Failure is expected when
+        // Held until this launch has started or failed: a second request for
+        // the recipe waits here, then finds this one running.
+        let gate = self.gate(&recipe.name);
+        let _held = gate.lock().unwrap_or_else(PoisonError::into_inner);
+
+        // Already running is not a reason to start again. The same launch is
+        // returned as it is — the answer to a retry whose first reply was
+        // lost, or to a request sent after this agent restarted. A different
+        // launch of the recipe is refused rather than replaced: the caller
+        // stops it first, on purpose.
+        let rows = self.ps()?;
+        if let Some(row) = idempotent::running_as(&name, &rows) {
+            if !idempotent::is_same_launch(&plan.docker, &self.inspect(&row.id)?) {
+                return Err(AgentError::AlreadyRunning {
+                    recipe: recipe_id(recipe),
+                });
+            }
+            return Ok(Started {
+                container: name,
+                endpoint: idempotent::endpoint_of(&plan.docker.command),
+            });
+        }
+
+        // Clear a stopped container of the same name. Failure is expected when
         // nothing is there; the launch below is what has to succeed.
         let _ = self
             .runner
@@ -158,21 +243,9 @@ impl Launcher for DockerLauncher {
             });
         }
 
-        let port = plan
-            .docker
-            .command
-            .windows(2)
-            .find(|w| w[0] == "--port")
-            .map(|w| w[1].clone());
-        let endpoint = match port.as_deref() {
-            // A worker rank is bound to port 0 and serves nothing.
-            Some("0") | None => None,
-            Some(p) => Some(format!("http://localhost:{p}/v1")),
-        };
-
         Ok(Started {
             container: name,
-            endpoint,
+            endpoint: idempotent::endpoint_of(&plan.docker.command),
         })
     }
 
@@ -187,47 +260,16 @@ impl Launcher for DockerLauncher {
         // on every machine by hand.
         //
         // The label is already on every container this agent starts, put there
-        // by the launch plan for exactly this kind of question.
-        let listed = self
-            .runner
-            .run(&[
-                "docker".into(),
-                "ps".into(),
-                "-q".into(),
-                "--filter".into(),
-                format!("label={LABEL_RECIPE}={recipe}"),
-            ])
-            .map_err(|e| AgentError::LaunchFailed {
-                detail: format!("{e:#}"),
-            })?;
-        if !listed.success() {
-            return Err(AgentError::LaunchFailed {
-                detail: listed.stderr.trim().to_string(),
-            });
-        }
-        let ids: Vec<String> = listed
-            .stdout
-            .lines()
-            .map(str::trim)
-            .filter(|l| !l.is_empty())
-            .map(str::to_owned)
-            .collect();
+        // by the launch plan for exactly this kind of question. A container an
+        // older agent started before the label existed is matched by its exact
+        // solo name (`idempotent::stop_targets`).
+        let gate = self.gate(recipe);
+        let _held = gate.lock().unwrap_or_else(PoisonError::into_inner);
+        let ids = idempotent::stop_targets(recipe, &self.ps()?);
         if ids.is_empty() {
-            // Nothing labelled. Fall back to the name so a container started by
-            // an older agent, before this label existed, is still stoppable.
-            let out = self
-                .runner
-                .run(&["docker".into(), "stop".into(), format!("metrale-{recipe}")])
-                .map_err(|e| AgentError::LaunchFailed {
-                    detail: format!("{e:#}"),
-                })?;
-            return if out.success() {
-                Ok(())
-            } else {
-                Err(AgentError::LaunchFailed {
-                    detail: out.stderr.trim().to_string(),
-                })
-            };
+            // Nothing of this recipe is running, which is what a stop asks
+            // for: a repeated stop, or one whose first reply was lost, is done.
+            return Ok(());
         }
 
         let mut argv: Vec<String> = vec!["docker".into(), "stop".into()];
@@ -286,6 +328,13 @@ impl Launcher for DockerLauncher {
             })
             .collect())
     }
+}
+
+/// The wire id of a recipe this launcher rendered. Its name parsed as an id
+/// when the request arrived, so the fallback is never expected to be used.
+fn recipe_id(recipe: &Recipe) -> RecipeId {
+    RecipeId::parse(&recipe.name)
+        .unwrap_or_else(|_| RecipeId::parse("unknown").expect("literal is a valid id"))
 }
 
 #[cfg(test)]

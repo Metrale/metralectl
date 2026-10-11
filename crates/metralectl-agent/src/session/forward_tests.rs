@@ -409,6 +409,7 @@ async fn a_chain_refusal_surfaces_typed_under_the_request_id() {
                     node: target(),
                     via: Some(relay_id()),
                     detail: "dial failed".into(),
+                    transient: true,
                 },
             },
             Some(relay_id()),

@@ -378,6 +378,8 @@ impl std::fmt::Debug for ControlHost {
     }
 }
 
+pub mod retry;
+
 #[cfg(test)]
 #[path = "control/tests.rs"]
 mod tests;

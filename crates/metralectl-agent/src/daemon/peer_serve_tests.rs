@@ -374,7 +374,9 @@ async fn an_ungranted_sender_cannot_ask_for_a_forward() {
     match rep {
         ControlRep::Refused {
             by,
-            error: AgentError::RelayRefused { node, via, detail },
+            error: AgentError::RelayRefused {
+                node, via, detail, ..
+            },
         } => {
             assert_eq!(by, r.local);
             assert_eq!(via, Some(r.local), "the relay names itself in the error");
@@ -411,7 +413,9 @@ async fn a_relay_refuses_to_reach_a_node_it_has_not_itself_pinned() {
     match rep {
         ControlRep::Refused {
             by,
-            error: AgentError::RelayRefused { node, via, detail },
+            error: AgentError::RelayRefused {
+                node, via, detail, ..
+            },
         } => {
             assert_eq!(by, r.local);
             assert_eq!(via, Some(r.local), "the relay names itself in the error");

@@ -92,29 +92,36 @@ fn preview_and_launch_render_the_same_command() {
 }
 
 #[test]
-fn launching_removes_a_stale_container_first_then_runs() {
+fn launching_asks_what_runs_then_clears_a_stale_container_then_runs() {
     let runner = Arc::new(RecordingRunner::new());
     launcher(runner.clone())
         .launch(&recipe(), &BTreeMap::new())
         .expect("launches");
     let calls = runner.calls();
     assert_eq!(
-        calls[0][..3],
-        ["docker", "rm", "-f"],
-        "stale container is cleared first"
+        calls[0][..2],
+        ["docker", "ps"],
+        "what is running is read before anything is started"
     );
-    assert_eq!(calls[0][3], "metrale-r");
-    assert_eq!(calls[1][..2], ["docker", "run"]);
+    assert_eq!(
+        calls[1][..3],
+        ["docker", "rm", "-f"],
+        "a stopped container of the same name is cleared next"
+    );
+    assert_eq!(calls[1][3], "metrale-r");
+    assert_eq!(calls[2][..2], ["docker", "run"]);
 }
 
 #[test]
 fn a_failed_docker_run_is_reported_with_its_stderr() {
     let runner = Arc::new(RecordingRunner::new());
-    runner.push_result(Output {
-        status: 0,
-        stdout: String::new(),
-        stderr: String::new(),
-    }); // rm
+    for _ in ["ps", "rm"] {
+        runner.push_result(Output {
+            status: 0,
+            stdout: String::new(),
+            stderr: String::new(),
+        });
+    }
     runner.push_result(Output {
         status: 125,
         stdout: String::new(),
@@ -168,17 +175,20 @@ fn an_override_reaches_the_executed_command() {
 #[test]
 fn stop_falls_back_to_our_own_container_name_when_nothing_is_labelled() {
     let runner = Arc::new(RecordingRunner::new());
+    runner.push_result(Output {
+        status: 0,
+        stdout: "id9\tmetrale-r\t\nid8\tmetrale-r-old\t\n".into(),
+        stderr: String::new(),
+    });
     launcher(runner.clone()).stop("r").expect("stops");
     let calls = runner.calls();
     assert!(
-        calls[0]
-            .iter()
-            .any(|a| a.contains("io.metralectl.recipe=r")),
-        "must ask docker by OUR label first: {calls:?}"
+        calls[0].iter().any(|a| a.contains("io.metralectl.recipe")),
+        "must ask docker for OUR label first: {calls:?}"
     );
     assert_eq!(
         calls.last().expect("a stop"),
-        &["docker", "stop", "metrale-r"],
+        &["docker", "stop", "id9"],
         "and fall back to the exact name, not a pattern: {calls:?}"
     );
 }
@@ -193,7 +203,7 @@ fn stop_reaches_rank_containers_a_name_match_would_miss() {
     let runner = Arc::new(RecordingRunner::new());
     runner.push_result(Output {
         status: 0,
-        stdout: "abc123\ndef456\n".into(),
+        stdout: "abc123\tmetrale-r-rank0\tr\ndef456\tmetrale-r-rank1\tr\n".into(),
         stderr: String::new(),
     });
     launcher(runner.clone()).stop("r").expect("stops");
@@ -364,3 +374,8 @@ fn a_recipe_that_brings_its_own_weights_is_not_refused() {
         "the flag must reach the command: {ran}"
     );
 }
+
+#[path = "fake_docker.rs"]
+mod fake_docker;
+#[path = "idempotency_tests.rs"]
+mod idempotency;
