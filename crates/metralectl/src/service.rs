@@ -20,6 +20,7 @@
 //! root-owned service on top of that would widen a surface that is quite wide
 //! enough.
 
+pub mod config;
 pub mod plan;
 
 #[cfg(test)]
@@ -43,6 +44,11 @@ pub struct Installed {
     pub unit_path: PathBuf,
     /// Which supervisor now owns the agent.
     pub kind: ServiceKind,
+    /// Whether anything was written or (re)started. `false` only when the
+    /// unit on disk was already this one, binary included, and the
+    /// supervisor reports it running: a repeat install then does nothing,
+    /// so it never restarts a healthy agent or adds a second service.
+    pub changed: bool,
     /// Steps that were allowed to fail and did, with the reason.
     ///
     /// Reported rather than swallowed: on a headless machine a failed
@@ -65,6 +71,26 @@ pub fn install(
 ) -> Result<Installed> {
     let kind = ServiceKind::detect()?;
     let p = plan::plan(kind, agent, home, uid);
+
+    // The one unit path per supervisor is what keeps this to one service;
+    // this is what keeps a repeat from restarting it. Read only when the
+    // file exists: a first install has nothing to compare.
+    let same_unit = fs.exists(&p.unit_path)
+        && fs
+            .read_to_string(&p.unit_path)
+            .is_ok_and(|on_disk| on_disk == p.unit_body);
+    if same_unit
+        && !p.verify.is_empty()
+        && matches!(runner.run(&p.verify), Ok(out) if out.success())
+    {
+        return Ok(Installed {
+            running: true,
+            unit_path: p.unit_path,
+            kind: p.kind,
+            changed: false,
+            skipped: Vec::new(),
+        });
+    }
 
     let parent = p
         .unit_path
@@ -125,6 +151,7 @@ pub fn install(
         running,
         unit_path: p.unit_path,
         kind: p.kind,
+        changed: true,
         skipped,
     })
 }
@@ -198,6 +225,7 @@ fn teardown_plan(kind: ServiceKind, home: &std::path::Path, uid: u32) -> Service
             config_dir: None,
             log_file: None,
             bench_node: false,
+            binary_sha256: String::new(),
         },
         home,
         uid,

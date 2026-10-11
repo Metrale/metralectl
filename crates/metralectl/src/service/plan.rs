@@ -103,6 +103,23 @@ pub struct AgentInvocation {
     /// A bench job's `cargo build` and the gate's engine run as the agent's
     /// children, in its cgroup, so a bench node's unit carries no memory cap.
     pub bench_node: bool,
+    /// The SHA-256 of the binary at `exe`, written into the unit as a comment.
+    ///
+    /// It is what makes a repeated install safe to skip: an unchanged unit
+    /// on disk means the same flags AND the same binary, so a reinstall that
+    /// changes nothing restarts nothing, while one after an upgrade (the
+    /// binary replaced at the same path) still restarts onto the new build.
+    pub binary_sha256: String,
+}
+
+impl AgentInvocation {
+    /// The binary marker as an XML comment, for the plist and the task.
+    fn xml_marker(&self) -> String {
+        format!(
+            "<!-- metralectl binary sha256: {} -->\n",
+            xml_escape(&self.binary_sha256)
+        )
+    }
 }
 
 impl AgentInvocation {
@@ -215,10 +232,12 @@ fn systemd(agent: &AgentInvocation, home: &Path) -> ServicePlan {
     } else {
         "MemoryMax=256M\n"
     };
+    let binary = agent.binary_sha256.replace('\n', " ");
     let unit_body = format!(
         "# Written by `metralectl agent install`. Edits here are NOT kept:\n\
          # reinstalling overwrites this file. Put local changes in a drop-in\n\
          # under {SERVICE_NAME}.service.d/ instead.\n\
+         # metralectl binary sha256: {binary}\n\
          [Unit]\n\
          Description=Metrale Engine agent — the local control plane the website talks to\n\
          Documentation=https://metrale.ai/control\n\
@@ -320,11 +339,13 @@ fn launchd(agent: &AgentInvocation, home: &Path, uid: u32) -> ServicePlan {
         .join("Library/Logs")
         .join(format!("{SERVICE_NAME}.log"));
     let log = xml_escape(&logs.display().to_string());
+    let marker = agent.xml_marker();
 
     let unit_body = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
          <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \
          \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+         {marker}\
          <plist version=\"1.0\">\n\
          <dict>\n\
          \x20 <key>Label</key>\n\

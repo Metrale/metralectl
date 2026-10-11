@@ -8,6 +8,7 @@ pub mod agentpair;
 pub mod bench;
 pub mod doctor;
 pub mod doctor_checks;
+pub mod install_config;
 pub mod lifecycle;
 pub mod peer;
 pub mod recipe;

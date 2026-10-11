@@ -14,6 +14,9 @@ use anyhow::{Context, Result};
 /// # Errors
 /// If the platform has no supported supervisor, or a required step fails.
 pub fn install(args: &crate::cli::AgentInstallArgs) -> Result<()> {
+    if let Some(file) = &args.config {
+        return super::install_config::install(file);
+    }
     // Parsed before anything is installed. A malformed invitation should cost
     // the operator a retyped argument, not a service they now have to remove.
     let join = args
@@ -23,6 +26,7 @@ pub fn install(args: &crate::cli::AgentInstallArgs) -> Result<()> {
         .transpose()?;
 
     let exe = std::env::current_exe().context("could not find this binary's own path")?;
+    let binary_sha256 = super::install_config::binary_sha256(&exe)?;
     let home = crate::hostinfo::home_dir()?;
     let invocation = crate::service::plan::AgentInvocation {
         exe,
@@ -39,6 +43,7 @@ pub fn install(args: &crate::cli::AgentInstallArgs) -> Result<()> {
         bench_node: crate::hostinfo::config_dir()?
             .join(metralectl_agent::bench::config::FILE)
             .is_file(),
+        binary_sha256,
     };
     let done = crate::service::install(
         &metralectl_core::io::StdFileSystem,
@@ -48,7 +53,9 @@ pub fn install(args: &crate::cli::AgentInstallArgs) -> Result<()> {
         uid_of(&home),
     )?;
 
-    if done.running {
+    if !done.changed {
+        println!("agent already installed and running with this binary and these settings");
+    } else if done.running {
         println!("agent installed and started");
     } else {
         // Installed is true; started is not. Saying "started" here is how an

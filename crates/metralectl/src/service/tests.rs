@@ -112,6 +112,7 @@ pub(super) fn agent() -> AgentInvocation {
         config_dir: None,
         log_file: None,
         bench_node: false,
+        binary_sha256: "ab".repeat(32),
     }
 }
 
@@ -480,5 +481,6 @@ fn the_unload_is_allowed_to_fail() {
     }
 }
 
+mod repeat;
 mod systemd;
 mod windows;

@@ -170,6 +170,21 @@ pub struct AgentInstallArgs {
     /// it is said on its own, on the line the operator reads before running.
     #[arg(long, requires = "join")]
     pub grant_bench: bool,
+
+    /// Install non-interactively from a configuration file that states every
+    /// unit setting (`version`, `port`, `mode`, `discovery`, `browser`,
+    /// `config_dir`; JSON, every key required).
+    ///
+    /// For an installer laying a node down: nothing is taken from flags or
+    /// defaults, a repeat with the same file and binary changes nothing, and
+    /// the outcome is one JSON line on stdout. Exits non-zero unless the
+    /// agent is running.
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with_all = ["port", "client", "no_discovery", "no_browser", "join"]
+    )]
+    pub config: Option<std::path::PathBuf>,
 }
 
 /// `agent pair` arguments.
@@ -393,5 +408,35 @@ mod tests {
                 .command,
             Command::Peer(PeerCmd::GrantBench(_))
         ));
+    }
+
+    /// A configuration file is the whole install: no unit setting may also
+    /// arrive as a flag, where one of the two would silently lose. Sabotage:
+    /// dropping `conflicts_with_all` accepts `--config` beside `--port`.
+    #[test]
+    fn install_from_a_file_takes_no_unit_flag_beside_it() {
+        let file =
+            Cli::try_parse_from(["metralectl", "agent", "install", "--config", "/etc/a.json"])
+                .expect("valid");
+        match file.command {
+            Command::Agent(AgentCmd::Install(a)) => {
+                assert_eq!(a.config, Some("/etc/a.json".into()));
+            }
+            other => panic!("{other:?}"),
+        }
+        for flag in [
+            &["--port", "1"][..],
+            &["--client"],
+            &["--no-discovery"],
+            &["--no-browser"],
+            &["--join", "12345678@10.10.10.1"],
+        ] {
+            let mut argv = vec!["metralectl", "agent", "install", "--config", "/etc/a.json"];
+            argv.extend_from_slice(flag);
+            assert!(
+                Cli::try_parse_from(argv).is_err(),
+                "{flag:?} beside --config"
+            );
+        }
     }
 }
