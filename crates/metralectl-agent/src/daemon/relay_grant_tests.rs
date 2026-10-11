@@ -271,6 +271,7 @@ impl Launcher for SlowFirstLaunch {
         &self,
         _: &metralectl_core::Recipe,
         _: &BTreeMap<String, metralectl_core::ScalarValue>,
+        _: &metralectl_control::launcher::LaunchFor,
     ) -> Result<metralectl_control::launcher::Started, AgentError> {
         let _held = self.gate.lock().expect("gate");
         if !self.running.load(Ordering::SeqCst) {
@@ -288,6 +289,10 @@ impl Launcher for SlowFirstLaunch {
     }
     fn running(&self) -> Result<Vec<metralectl_protocol::msg::RunningLaunch>, AgentError> {
         Ok(Vec::new())
+    }
+    fn workloads(&self) -> Result<Vec<metralectl_control::launcher::Workload>, AgentError> {
+        // Not reached: nothing here reconciles a deployment.
+        Err(AgentError::NotReady)
     }
 }
 

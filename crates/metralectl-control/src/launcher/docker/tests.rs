@@ -51,6 +51,9 @@ fn recipe() -> Recipe {
     .expect("fixture parses")
 }
 
+/// A launch outside any deployment, as the browser and peer paths make.
+const UNOWNED: LaunchFor = LaunchFor { owner: None };
+
 fn launcher(runner: Arc<RecordingRunner>) -> DockerLauncher {
     DockerLauncher::new(runner, host(), &ROOTLESS_V1, Box::new(NvidiaDevices))
 }
@@ -76,7 +79,7 @@ fn preview_and_launch_render_the_same_command() {
     let runner = Arc::new(RecordingRunner::new());
     let l = launcher(runner.clone());
     let previewed = l.preview(&recipe(), &BTreeMap::new()).unwrap().command;
-    l.launch(&recipe(), &BTreeMap::new()).unwrap();
+    l.launch(&recipe(), &BTreeMap::new(), &UNOWNED).unwrap();
 
     let run_call = runner
         .calls()
@@ -95,7 +98,7 @@ fn preview_and_launch_render_the_same_command() {
 fn launching_asks_what_runs_then_clears_a_stale_container_then_runs() {
     let runner = Arc::new(RecordingRunner::new());
     launcher(runner.clone())
-        .launch(&recipe(), &BTreeMap::new())
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect("launches");
     let calls = runner.calls();
     assert_eq!(
@@ -128,7 +131,7 @@ fn a_failed_docker_run_is_reported_with_its_stderr() {
         stderr: "no such image".into(),
     });
     let err = launcher(runner)
-        .launch(&recipe(), &BTreeMap::new())
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect_err("must fail");
     let msg = err.to_string();
     assert!(msg.contains("125"), "{msg}");
@@ -139,7 +142,7 @@ fn a_failed_docker_run_is_reported_with_its_stderr() {
 fn the_endpoint_reflects_the_resolved_port() {
     let runner = Arc::new(RecordingRunner::new());
     let started = launcher(runner)
-        .launch(&recipe(), &BTreeMap::new())
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect("launches");
     assert_eq!(started.container, "metrale-r");
     assert_eq!(
@@ -153,7 +156,7 @@ fn an_override_reaches_the_executed_command() {
     let runner = Arc::new(RecordingRunner::new());
     let overrides = BTreeMap::from([("port".to_string(), ScalarValue::Int(9100))]);
     let started = launcher(runner.clone())
-        .launch(&recipe(), &overrides)
+        .launch(&recipe(), &overrides, &UNOWNED)
         .expect("launches");
     assert_eq!(
         started.endpoint.as_deref(),
@@ -177,7 +180,7 @@ fn stop_falls_back_to_our_own_container_name_when_nothing_is_labelled() {
     let runner = Arc::new(RecordingRunner::new());
     runner.push_result(Output {
         status: 0,
-        stdout: "id9\tmetrale-r\t\nid8\tmetrale-r-old\t\n".into(),
+        stdout: "id9\tmetrale-r\t\t\t\nid8\tmetrale-r-old\t\t\t\n".into(),
         stderr: String::new(),
     });
     launcher(runner.clone()).stop("r").expect("stops");
@@ -203,7 +206,7 @@ fn stop_reaches_rank_containers_a_name_match_would_miss() {
     let runner = Arc::new(RecordingRunner::new());
     runner.push_result(Output {
         status: 0,
-        stdout: "abc123\tmetrale-r-rank0\tr\ndef456\tmetrale-r-rank1\tr\n".into(),
+        stdout: "abc123\tmetrale-r-rank0\tr\t\t\ndef456\tmetrale-r-rank1\tr\t\t\n".into(),
         stderr: String::new(),
     });
     launcher(runner.clone()).stop("r").expect("stops");
@@ -277,7 +280,7 @@ fn a_model_missing_from_the_cache_is_refused_without_running_docker() {
     let l = DockerLauncher::new(runner.clone(), h, &ROOTLESS_V1, Box::new(NvidiaDevices));
 
     let err = l
-        .launch(&recipe(), &BTreeMap::new())
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect_err("an absent model must be refused");
     let AgentError::LaunchFailed { detail } = err else {
         panic!("expected LaunchFailed, got {err:?}");
@@ -314,7 +317,7 @@ fn a_metadata_only_cache_entry_is_refused_and_named_as_such() {
     let l = DockerLauncher::new(runner.clone(), h, &ROOTLESS_V1, Box::new(NvidiaDevices));
 
     let err = l
-        .launch(&recipe(), &BTreeMap::new())
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect_err("a weightless cache entry must be refused");
     let AgentError::LaunchFailed { detail } = err else {
         panic!("expected LaunchFailed, got {err:?}");
@@ -363,7 +366,9 @@ fn a_recipe_that_brings_its_own_weights_is_not_refused() {
     )
     .expect("fixture parses");
 
-    let started = l.launch(&r, &BTreeMap::new()).expect("must not be refused");
+    let started = l
+        .launch(&r, &BTreeMap::new(), &UNOWNED)
+        .expect("must not be refused");
     assert_eq!(started.container, "metrale-r");
     // The guard is skipped by reading the RENDERED command, so prove the flag
     // actually reached it — a recipe whose setting was silently dropped would
@@ -375,7 +380,5 @@ fn a_recipe_that_brings_its_own_weights_is_not_refused() {
     );
 }
 
-#[path = "fake_docker.rs"]
-mod fake_docker;
 #[path = "idempotency_tests.rs"]
 mod idempotency;

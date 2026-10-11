@@ -19,8 +19,12 @@
 //!
 //! Only this deployment's own workloads are ever stopped. Anything the
 //! realisation would touch that is not its own is a refusal, not a step.
+//!
+//! [`driver`] is the host half: it observes the launcher, carries the steps
+//! out through the control core, and answers the plane.
 
 pub mod contract;
+pub mod driver;
 
 use contract::{DeploymentName, Desired, Instance, Intent, Observed, Placement, Refusal, Step};
 use metralectl_protocol::msg::ControlReq;

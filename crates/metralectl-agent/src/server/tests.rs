@@ -154,6 +154,7 @@ impl metralectl_control::launcher::Launcher for SleepyLauncher {
         &self,
         _: &metralectl_core::Recipe,
         _: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
+        _: &metralectl_control::launcher::LaunchFor,
     ) -> Result<metralectl_control::launcher::Started, metralectl_protocol::msg::AgentError> {
         // Exactly what the real launcher does to the calling thread.
         std::thread::sleep(self.delay);
@@ -170,6 +171,13 @@ impl metralectl_control::launcher::Launcher for SleepyLauncher {
     ) -> Result<Vec<metralectl_protocol::msg::RunningLaunch>, metralectl_protocol::msg::AgentError>
     {
         Ok(Vec::new())
+    }
+    fn workloads(
+        &self,
+    ) -> Result<Vec<metralectl_control::launcher::Workload>, metralectl_protocol::msg::AgentError>
+    {
+        // Not reached: nothing here reconciles a deployment.
+        Err(metralectl_protocol::msg::AgentError::NotReady)
     }
 }
 

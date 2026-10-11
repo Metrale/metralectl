@@ -103,7 +103,11 @@ async fn a_recipe_declaring_other_hardware_is_refused_before_the_launcher() {
         // The browser's path is the same core.
         let direct = n
             .on(accelerator)
-            .launch(&id(NEEDS_GB10), &BTreeMap::new())
+            .launch(
+                &id(NEEDS_GB10),
+                &BTreeMap::new(),
+                crate::launcher::LaunchFor { owner: None },
+            )
             .await;
         assert!(
             matches!(direct, Err(AgentError::NotLaunchable { .. })),

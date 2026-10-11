@@ -242,7 +242,10 @@ async fn a_remote_override_above_the_gb10_caution_is_refused_not_warned() {
         "gpu_memory_utilization".to_owned(),
         metralectl_protocol::settings::SettingValue::Float(0.95),
     );
-    let err = c.launch(&id(REAL), &req).await.expect_err("must refuse");
+    let err = c
+        .launch(&id(REAL), &req, crate::launcher::LaunchFor { owner: None })
+        .await
+        .expect_err("must refuse");
     // Structured, not prose: `BadSettings`'s Display is a summary ("1
     // setting(s) rejected"), and the browser renders the errors themselves.
     let metralectl_protocol::msg::AgentError::BadSettings { errors } = &err else {
@@ -275,7 +278,9 @@ async fn the_same_value_is_untouched_on_hardware_the_caution_does_not_claim() {
     );
     // Reaches the launcher — it may still fail there for unrelated reasons,
     // but it must not be refused by the GB10 caution.
-    let out = c.launch(&id(REAL), &req).await;
+    let out = c
+        .launch(&id(REAL), &req, crate::launcher::LaunchFor { owner: None })
+        .await;
     if let Err(metralectl_protocol::msg::AgentError::BadSettings { errors }) = &out {
         assert!(
             !errors.iter().any(|e| matches!(

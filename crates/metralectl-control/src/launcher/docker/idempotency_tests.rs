@@ -4,12 +4,12 @@
 //! that keeps state (`fake_docker.rs`) — so "one container" is counted, not
 //! assumed from a scripted reply.
 
-use super::fake_docker::FakeDocker;
 use super::*;
+use crate::launcher::docker::fake_docker::FakeDocker;
 use std::time::Duration;
 
 fn daemon(run_delay: Duration) -> Arc<FakeDocker> {
-    Arc::new(FakeDocker::new("img:tag", run_delay))
+    Arc::new(FakeDocker::new(run_delay))
 }
 
 /// A launcher over `daemon` — a fresh one per call is an agent restart.
@@ -29,8 +29,12 @@ fn on(daemon: &Arc<FakeDocker>) -> DockerLauncher {
 fn launching_a_running_recipe_again_returns_that_launch() {
     let d = daemon(Duration::ZERO);
     let l = on(&d);
-    let first = l.launch(&recipe(), &BTreeMap::new()).expect("launches");
-    let again = l.launch(&recipe(), &BTreeMap::new()).expect("returns it");
+    let first = l
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
+        .expect("launches");
+    let again = l
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
+        .expect("returns it");
     assert_eq!(again, first, "the same container and endpoint");
     assert_eq!(d.runs(), 1, "one docker run, not two");
     assert_eq!(d.running(), ["metrale-r"]);
@@ -43,12 +47,12 @@ fn launching_a_running_recipe_again_returns_that_launch() {
 fn a_restarted_agent_finds_the_launch_instead_of_starting_another() {
     let d = daemon(Duration::ZERO);
     let first = on(&d)
-        .launch(&recipe(), &BTreeMap::new())
+        .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect("launches");
     let after_restart = on(&d);
     assert_eq!(
         after_restart
-            .launch(&recipe(), &BTreeMap::new())
+            .launch(&recipe(), &BTreeMap::new(), &UNOWNED)
             .expect("returns it"),
         first
     );
@@ -66,9 +70,12 @@ fn a_restarted_agent_finds_the_launch_instead_of_starting_another() {
 fn a_different_launch_of_a_running_recipe_is_refused_not_replaced() {
     let d = daemon(Duration::ZERO);
     let l = on(&d);
-    l.launch(&recipe(), &BTreeMap::new()).expect("launches");
+    l.launch(&recipe(), &BTreeMap::new(), &UNOWNED)
+        .expect("launches");
     let other = BTreeMap::from([("port".to_string(), ScalarValue::Int(9100))]);
-    let err = l.launch(&recipe(), &other).expect_err("must refuse");
+    let err = l
+        .launch(&recipe(), &other, &UNOWNED)
+        .expect_err("must refuse");
     assert!(matches!(err, AgentError::AlreadyRunning { .. }), "{err:?}");
     assert_eq!(d.runs(), 1, "nothing was replaced");
     assert_eq!(d.running(), ["metrale-r"]);
@@ -81,7 +88,8 @@ fn stopping_nothing_and_stopping_twice_both_succeed() {
     let d = daemon(Duration::ZERO);
     let l = on(&d);
     l.stop("r").expect("nothing running is already stopped");
-    l.launch(&recipe(), &BTreeMap::new()).expect("launches");
+    l.launch(&recipe(), &BTreeMap::new(), &UNOWNED)
+        .expect("launches");
     l.stop("r").expect("stops");
     l.stop("r").expect("a second stop is done already");
     assert!(d.running().is_empty());
@@ -92,9 +100,10 @@ fn stopping_nothing_and_stopping_twice_both_succeed() {
 fn a_launch_after_a_stop_starts_again() {
     let d = daemon(Duration::ZERO);
     let l = on(&d);
-    l.launch(&recipe(), &BTreeMap::new()).expect("launches");
+    l.launch(&recipe(), &BTreeMap::new(), &UNOWNED)
+        .expect("launches");
     l.stop("r").expect("stops");
-    l.launch(&recipe(), &BTreeMap::new())
+    l.launch(&recipe(), &BTreeMap::new(), &UNOWNED)
         .expect("launches again");
     assert_eq!(d.runs(), 2);
     assert_eq!(d.running(), ["metrale-r"]);
@@ -108,8 +117,8 @@ fn two_racing_launches_start_one_container() {
     let d = daemon(Duration::from_millis(300));
     let l = on(&d);
     let (a, b) = std::thread::scope(|s| {
-        let a = s.spawn(|| l.launch(&recipe(), &BTreeMap::new()));
-        let b = s.spawn(|| l.launch(&recipe(), &BTreeMap::new()));
+        let a = s.spawn(|| l.launch(&recipe(), &BTreeMap::new(), &UNOWNED));
+        let b = s.spawn(|| l.launch(&recipe(), &BTreeMap::new(), &UNOWNED));
         (a.join().expect("thread"), b.join().expect("thread"))
     });
     assert_eq!(a.expect("first"), b.expect("second"));

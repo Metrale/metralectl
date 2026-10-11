@@ -12,7 +12,7 @@
 
 use crate::LaunchTelemetry;
 use crate::admission::AdmissionGate;
-use crate::launcher::{Launcher, Preview, Started};
+use crate::launcher::{LaunchFor, Launcher, Preview, Started, Workload};
 use crate::logs::LogTail;
 use metralectl_core::registry::{RecipeRef, RegistrySet};
 use metralectl_core::settings;
@@ -109,7 +109,7 @@ impl LocalControl<'_> {
         self.launcher.preview(&recipe, &overrides)
     }
 
-    /// Start a recipe on this machine.
+    /// Start a recipe on this machine, for whoever `launch_for` names.
     ///
     /// # Errors
     /// If this machine cannot launch or is cordoned or draining, the recipe is
@@ -119,6 +119,7 @@ impl LocalControl<'_> {
         &self,
         recipe_id: &RecipeId,
         requested: &BTreeMap<String, SettingValue>,
+        launch_for: LaunchFor,
     ) -> Result<Started, AgentError> {
         if let Err(why) = self.can_launch {
             return Err(AgentError::NotLaunchable {
@@ -198,7 +199,7 @@ impl LocalControl<'_> {
         // launcher is an `Arc` (clone = refcount bump), and `recipe` and
         // `overrides` are owned locals moved in.
         let launcher = std::sync::Arc::clone(&self.launcher);
-        blocking(move || launcher.launch(&recipe, &overrides)).await
+        blocking(move || launcher.launch(&recipe, &overrides, &launch_for)).await
     }
 
     /// Stop a running launch, by recipe.
@@ -221,6 +222,22 @@ impl LocalControl<'_> {
         // polled by the browser rather than called once.
         let launcher = std::sync::Arc::clone(&self.launcher);
         blocking(move || launcher.running()).await
+    }
+
+    /// Every running workload a stop could reach, and whose it is.
+    ///
+    /// # Errors
+    /// If the launcher cannot answer.
+    pub async fn workloads(&self) -> Result<Vec<Workload>, AgentError> {
+        let launcher = std::sync::Arc::clone(&self.launcher);
+        blocking(move || launcher.workloads()).await
+    }
+
+    /// The model this machine's own copy of `recipe_id` serves; `None` when
+    /// this machine has no such recipe.
+    #[must_use]
+    pub fn recipe_model(&self, recipe_id: &RecipeId) -> Option<String> {
+        self.resolve(recipe_id).ok().map(|r| r.model)
     }
 
     /// How a running launch is doing.
@@ -281,7 +298,10 @@ impl LocalControl<'_> {
                 })
             }
             ControlReq::Launch { recipe, settings } => {
-                let started = self.launch(&recipe, &settings).await?;
+                // A control request is a launch outside any deployment; only
+                // the reconciler launches for one.
+                let launch_for = LaunchFor { owner: None };
+                let started = self.launch(&recipe, &settings, launch_for).await?;
                 Ok(ControlRep::Started {
                     recipe,
                     container: started.container,

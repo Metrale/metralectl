@@ -21,6 +21,11 @@ pub const DEFAULT_MASTER_PORT: u16 = 29500;
 pub const LABEL_MANAGED: &str = "io.metralectl.managed";
 /// Label recording which recipe produced a container.
 pub const LABEL_RECIPE: &str = "io.metralectl.recipe";
+/// Label recording which deployment a container was launched for. Absent on a
+/// launch outside any deployment (a browser, the command line).
+pub const LABEL_DEPLOYMENT: &str = "io.metralectl.deployment";
+/// Label recording which generation of its deployment a container realises.
+pub const LABEL_GENERATION: &str = "io.metralectl.generation";
 
 /// Which node of a launch this command is for.
 #[derive(Debug, Clone, PartialEq, Eq)]

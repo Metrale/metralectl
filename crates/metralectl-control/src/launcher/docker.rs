@@ -3,7 +3,7 @@
 //! The production launcher: translate a recipe, then run the command.
 
 use super::idempotent::{self, LaunchedAs, PsRow};
-use super::{Launcher, Preview, Started};
+use super::{LaunchFor, Launcher, Preview, Started, Workload};
 use metralectl_core::chain::UserConfig;
 use metralectl_core::docker::collective::NcclRoce;
 use metralectl_core::docker::profile::{DeviceProfile, LaunchProfile};
@@ -64,6 +64,8 @@ impl DockerLauncher {
             .run(&[
                 "docker".into(),
                 "ps".into(),
+                // Full ids: an instance id is the first half of one.
+                "--no-trunc".into(),
                 "--format".into(),
                 idempotent::ps_format(),
             ])
@@ -160,9 +162,16 @@ impl Launcher for DockerLauncher {
         &self,
         recipe: &Recipe,
         overrides: &BTreeMap<String, ScalarValue>,
+        launch_for: &LaunchFor,
     ) -> Result<Started, AgentError> {
-        let plan = self.plan(recipe, overrides)?;
+        let mut plan = self.plan(recipe, overrides)?;
         let name = plan.docker.name.clone();
+        // Written at launch, read back by `workloads`: the container itself
+        // records which deployment and generation it realises, so what the
+        // reconciler observes after a restart is what it observed before.
+        if let Some(owner) = &launch_for.owner {
+            plan.docker.labels.extend(idempotent::owner_labels(owner));
+        }
 
         // The same guard `metralectl run` applies, because this path has an
         // operator too — they are just in a browser instead of a terminal, and
@@ -214,7 +223,14 @@ impl Launcher for DockerLauncher {
         // stops it first, on purpose.
         let rows = self.ps()?;
         if let Some(row) = idempotent::running_as(&name, &rows) {
-            if !idempotent::is_same_launch(&plan.docker, &self.inspect(&row.id)?) {
+            let launched = self.inspect(&row.id)?;
+            // Adopting another deployment's container, or another generation's,
+            // would report this one realised when it is not.
+            let owned = launch_for
+                .owner
+                .as_ref()
+                .is_none_or(|o| idempotent::is_owned_by(&launched, o));
+            if !owned || !idempotent::is_same_launch(&plan.docker, &launched) {
                 return Err(AgentError::AlreadyRunning {
                     recipe: recipe_id(recipe),
                 });
@@ -328,6 +344,10 @@ impl Launcher for DockerLauncher {
             })
             .collect())
     }
+
+    fn workloads(&self) -> Result<Vec<Workload>, AgentError> {
+        idempotent::workloads(&self.ps()?).map_err(|detail| AgentError::LaunchFailed { detail })
+    }
 }
 
 /// The wire id of a recipe this launcher rendered. Its name parsed as an id
@@ -336,6 +356,9 @@ fn recipe_id(recipe: &Recipe) -> RecipeId {
     RecipeId::parse(&recipe.name)
         .unwrap_or_else(|_| RecipeId::parse("unknown").expect("literal is a valid id"))
 }
+
+#[cfg(test)]
+pub(crate) mod fake_docker;
 
 #[cfg(test)]
 mod tests;

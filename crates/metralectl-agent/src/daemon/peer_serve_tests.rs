@@ -62,14 +62,18 @@ impl Launcher for SharedLauncher {
         &self,
         recipe: &metralectl_core::Recipe,
         o: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
+        launch_for: &metralectl_control::launcher::LaunchFor,
     ) -> Result<metralectl_control::launcher::Started, AgentError> {
-        self.0.launch(recipe, o)
+        self.0.launch(recipe, o, launch_for)
     }
     fn stop(&self, recipe: &str) -> Result<(), AgentError> {
         self.0.stop(recipe)
     }
     fn running(&self) -> Result<Vec<metralectl_protocol::msg::RunningLaunch>, AgentError> {
         self.0.running()
+    }
+    fn workloads(&self) -> Result<Vec<metralectl_control::launcher::Workload>, AgentError> {
+        self.0.workloads()
     }
 }
 

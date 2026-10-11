@@ -10,6 +10,20 @@ fn row(id: &str, name: &str, recipe: Option<&str>) -> PsRow {
         id: id.to_owned(),
         name: name.to_owned(),
         recipe: recipe.map(str::to_owned),
+        deployment: None,
+        generation: None,
+    }
+}
+
+/// A full 64-hex container id whose first half is `half` repeated.
+fn full_id(half: char) -> String {
+    format!("{}{}", half.to_string().repeat(32), "0".repeat(32))
+}
+
+fn owned(deployment: &str, generation: u64) -> Owner {
+    Owner {
+        deployment: DeploymentName::parse(deployment).expect("label"),
+        generation: Generation::new(generation).expect("non-zero"),
     }
 }
 
@@ -46,26 +60,92 @@ fn launched(image: &str, cmd: &[&str], env: &[&str]) -> LaunchedAs {
         image: image.to_owned(),
         cmd: Some(cmd.iter().map(|s| (*s).to_owned()).collect()),
         env: Some(env.iter().map(|s| (*s).to_owned()).collect()),
+        labels: None,
     }
 }
 
-/// The template asks docker for exactly the three columns the parser reads,
-/// with the recipe label by its constant. Sabotage: reordering the columns
-/// in either place parses a name as an id.
+/// The template asks docker for exactly the five columns the parser reads,
+/// with each label by its constant. Sabotage: reordering the columns in
+/// either place reads a deployment as a generation.
 #[test]
 fn the_ps_template_and_the_parser_agree() {
     assert_eq!(
         ps_format(),
-        "{{.ID}}\t{{.Names}}\t{{.Label \"io.metralectl.recipe\"}}"
+        "{{.ID}}\t{{.Names}}\t{{.Label \"io.metralectl.recipe\"}}\t\
+         {{.Label \"io.metralectl.deployment\"}}\t{{.Label \"io.metralectl.generation\"}}"
     );
-    let rows = parse_ps("abc\tmetrale-r\tr\ndef\tsomeone-else\t\n\n").expect("parses");
+    let rows = parse_ps("abc\tmetrale-r\tr\tchat\t3\ndef\tsomeone-else\t\t\t\n\n").expect("parses");
+    let mut ours = row("abc", "metrale-r", Some("r"));
+    ours.deployment = Some("chat".into());
+    ours.generation = Some("3".into());
+    assert_eq!(rows, vec![ours, row("def", "someone-else", None)]);
+}
+
+/// The owner is both labels, well formed, or nobody. Sabotage: reading the
+/// deployment alone makes a half-labelled container this deployment's, and a
+/// later stop reaches it.
+#[test]
+fn an_owner_needs_both_labels_well_formed() {
+    assert_eq!(owner_of(Some("chat"), Some("3")), Some(owned("chat", 3)));
+    for (d, g) in [
+        (Some("chat"), None),
+        (None, Some("3")),
+        (Some("chat"), Some("0")),
+        (Some("chat"), Some("x")),
+        (Some("Chat"), Some("3")),
+    ] {
+        assert_eq!(owner_of(d, g), None, "{d:?} {g:?}");
+    }
+    let labelled = LaunchedAs {
+        labels: Some(BTreeMap::from(owner_labels(&owned("chat", 3)))),
+        ..launched("img:tag", &[], &[])
+    };
+    assert!(is_owned_by(&labelled, &owned("chat", 3)));
+    assert!(!is_owned_by(&labelled, &owned("chat", 4)));
+    assert!(!is_owned_by(&labelled, &owned("other", 3)));
+    assert!(!is_owned_by(
+        &launched("img:tag", &[], &[]),
+        &owned("chat", 3)
+    ));
+}
+
+/// What the reconciler observes: every container a stop of its recipe would
+/// reach, with its owner, and an instance id that is the container id's first
+/// half. Sabotage: dropping the unlabelled solo-name container hides a
+/// workload a stop would still catch.
+#[test]
+fn workloads_are_what_a_stop_could_reach_with_their_owners() {
+    let mut ours = row(&full_id('a'), "metrale-r", Some("r"));
+    ours.deployment = Some("chat".into());
+    ours.generation = Some("2".into());
+    let rows = [
+        ours,
+        row(&full_id('b'), "metrale-q", None),
+        row(&full_id('c'), "someone-elses", None),
+        // The solo name of recipe `q-old`, which a stop of `q-old` reaches.
+        row(&full_id('d'), "metrale-q-old", None),
+        row(&full_id('e'), "metrale-Q", None),
+    ];
+    let seen = workloads(&rows).expect("full ids");
+    let summary: Vec<(String, String, Option<Owner>)> = seen
+        .iter()
+        .map(|w| {
+            (
+                w.id.to_string(),
+                w.instance.recipe.to_string(),
+                w.instance.owner.clone(),
+            )
+        })
+        .collect();
     assert_eq!(
-        rows,
+        summary,
         vec![
-            row("abc", "metrale-r", Some("r")),
-            row("def", "someone-else", None)
+            ("a".repeat(32), "r".to_owned(), Some(owned("chat", 2))),
+            ("b".repeat(32), "q".to_owned(), None),
+            ("d".repeat(32), "q-old".to_owned(), None),
         ]
     );
+    assert!(workloads(&[row("abc123", "metrale-r", Some("r"))]).is_err());
 }
 
 /// A line docker should never print is an error, not a skipped row: a stop
@@ -82,7 +162,10 @@ fn an_inspected_config_is_read_from_dockers_json() {
     let json = r#"{"Hostname":"h","Image":"img:tag","Cmd":["met","serve"],"Env":["PATH=/bin","K=v"],"Labels":{}}"#;
     assert_eq!(
         parse_inspect(json).expect("parses"),
-        launched("img:tag", &["met", "serve"], &["PATH=/bin", "K=v"])
+        LaunchedAs {
+            labels: Some(BTreeMap::new()),
+            ..launched("img:tag", &["met", "serve"], &["PATH=/bin", "K=v"])
+        }
     );
     assert!(parse_inspect("not json").is_err());
 }

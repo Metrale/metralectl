@@ -9,9 +9,16 @@
 //! reply, or sent after this agent restarted, finds the first launch instead
 //! of starting a second.
 
-use metralectl_core::docker::translate::{LABEL_RECIPE, container_name};
+use super::Workload;
+use crate::platform::ids::InstanceId;
+use crate::reconcile::contract::{DeploymentName, Generation, Instance, Owner};
+use metralectl_core::docker::translate::{
+    LABEL_DEPLOYMENT, LABEL_GENERATION, LABEL_RECIPE, container_name,
+};
 use metralectl_core::docker::{DockerCommand, Placement};
+use metralectl_protocol::RecipeId;
 use serde::Deserialize;
+use std::collections::BTreeMap;
 
 /// One running container, as [`ps_format`] prints it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,13 +29,23 @@ pub struct PsRow {
     pub name: String,
     /// The recipe label, absent on a container this launcher did not label.
     pub recipe: Option<String>,
+    /// The deployment label, absent on a launch outside any deployment.
+    pub deployment: Option<String>,
+    /// The generation label, absent on a launch outside any deployment.
+    pub generation: Option<String>,
 }
 
 /// The `docker ps --format` template [`parse_ps`] reads. One definition, so
 /// the query and the parser cannot drift apart.
 #[must_use]
 pub fn ps_format() -> String {
-    format!("{{{{.ID}}}}\t{{{{.Names}}}}\t{{{{.Label \"{LABEL_RECIPE}\"}}}}")
+    let label = |key: &str| format!("{{{{.Label \"{key}\"}}}}");
+    format!(
+        "{{{{.ID}}}}\t{{{{.Names}}}}\t{}\t{}\t{}",
+        label(LABEL_RECIPE),
+        label(LABEL_DEPLOYMENT),
+        label(LABEL_GENERATION)
+    )
 }
 
 /// Parse `docker ps --format` output in the [`ps_format`] shape.
@@ -49,11 +66,16 @@ pub fn parse_ps(stdout: &str) -> Result<Vec<PsRow>, String> {
                     "docker ps printed a line without an id and a name: {line:?}"
                 ));
             }
-            let label = parts.next().unwrap_or_default().trim();
+            let mut label = || {
+                let v = parts.next().unwrap_or_default().trim();
+                (!v.is_empty()).then(|| v.to_owned())
+            };
             Ok(PsRow {
                 id: id.to_owned(),
                 name: name.to_owned(),
-                recipe: (!label.is_empty()).then(|| label.to_owned()),
+                recipe: label(),
+                deployment: label(),
+                generation: label(),
             })
         })
         .collect()
@@ -80,6 +102,9 @@ pub struct LaunchedAs {
     /// Its environment, `KEY=VALUE`, the image's own entries included.
     #[serde(rename = "Env")]
     pub env: Option<Vec<String>>,
+    /// Its labels, the image's own included.
+    #[serde(rename = "Labels")]
+    pub labels: Option<BTreeMap<String, String>>,
 }
 
 /// Parse [`INSPECT_FORMAT`] output.
@@ -106,6 +131,83 @@ pub fn is_same_launch(plan: &DockerCommand, launched: &LaunchedAs) -> bool {
             .env
             .iter()
             .all(|(k, v)| env.iter().any(|e| *e == format!("{k}={v}")))
+}
+
+/// The labels that record `owner` on a container.
+#[must_use]
+pub fn owner_labels(owner: &Owner) -> [(String, String); 2] {
+    [
+        (
+            LABEL_DEPLOYMENT.to_owned(),
+            owner.deployment.as_str().to_owned(),
+        ),
+        (
+            LABEL_GENERATION.to_owned(),
+            owner.generation.get().to_string(),
+        ),
+    ]
+}
+
+/// The owner two labels record: both present and both well formed, or none.
+///
+/// A container with only one of them, or one that does not parse, is read as
+/// owned by no deployment. The reconciler never stops such a container and
+/// refuses to launch over it, so a damaged label costs a refusal, never an
+/// unrelated workload.
+#[must_use]
+pub fn owner_of(deployment: Option<&str>, generation: Option<&str>) -> Option<Owner> {
+    Some(Owner {
+        deployment: DeploymentName::parse(deployment?).ok()?,
+        generation: Generation::new(generation?.parse().ok()?)?,
+    })
+}
+
+/// Whether a running container was launched for `owner`.
+#[must_use]
+pub fn is_owned_by(launched: &LaunchedAs, owner: &Owner) -> bool {
+    let labels = launched.labels.as_ref();
+    let get = |k: &str| labels.and_then(|l| l.get(k)).map(String::as_str);
+    owner_of(get(LABEL_DEPLOYMENT), get(LABEL_GENERATION)).as_ref() == Some(owner)
+}
+
+/// Every workload a stop of its recipe would reach, read from `docker ps`.
+///
+/// A container counts when it carries a recipe label, or when it is unlabelled
+/// but bears a recipe's solo name (an older agent's launch, which
+/// [`stop_targets`] also reaches). Anything else on the machine is not this
+/// launcher's and no verb can touch it, so it is left out.
+///
+/// # Errors
+/// A container id that is not docker's full 64-hex id: the instance id is its
+/// first 32 digits, and a guess at it would name the wrong instance.
+pub fn workloads(rows: &[PsRow]) -> Result<Vec<Workload>, String> {
+    rows.iter()
+        .filter_map(|r| {
+            let recipe = match &r.recipe {
+                Some(label) => RecipeId::parse(label).ok(),
+                None => r
+                    .name
+                    .strip_prefix("metrale-")
+                    .and_then(|n| RecipeId::parse(n).ok())
+                    .filter(|id| container_name(id.as_str(), &Placement::Solo) == r.name),
+            }?;
+            Some((r, recipe))
+        })
+        .map(|(r, recipe)| {
+            let id =
+                r.id.get(..32)
+                    .filter(|_| r.id.len() == 64)
+                    .ok_or_else(|| format!("docker printed {:?}, not a full container id", r.id))
+                    .and_then(InstanceId::parse)?;
+            Ok(Workload {
+                id,
+                instance: Instance {
+                    recipe,
+                    owner: owner_of(r.deployment.as_deref(), r.generation.as_deref()),
+                },
+            })
+        })
+        .collect()
 }
 
 /// Where a launch with this in-container command serves, when it serves.

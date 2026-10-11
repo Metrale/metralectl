@@ -50,7 +50,13 @@ impl Session<'_> {
         recipe_id: &RecipeId,
         requested: &BTreeMap<String, SettingValue>,
     ) -> Vec<ServerMsg> {
-        match self.control().launch(recipe_id, requested).await {
+        // A browser launch is outside any deployment.
+        let launch_for = metralectl_control::launcher::LaunchFor { owner: None };
+        match self
+            .control()
+            .launch(recipe_id, requested, launch_for)
+            .await
+        {
             Ok(started) => vec![ServerMsg::Started {
                 id,
                 recipe: recipe_id.clone(),

@@ -324,7 +324,7 @@ async fn a_valid_launch_reaches_the_launcher_with_exactly_the_checked_settings()
         "got {out:?}"
     );
     match &f.launcher.calls()[0] {
-        Call::Launch(name, overrides) => {
+        Call::Launch(name, overrides, _) => {
             assert_eq!(name, REAL);
             assert_eq!(
                 overrides.len(),

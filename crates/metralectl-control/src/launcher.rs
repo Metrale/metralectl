@@ -5,6 +5,8 @@
 //! Behind a trait so the session's decisions — which are the security-relevant
 //! part — are tested against a recording mock rather than a docker daemon.
 
+use crate::platform::ids::InstanceId;
+use crate::reconcile::contract::{Instance, Owner};
 use metralectl_core::{Recipe, ScalarValue};
 use metralectl_protocol::msg::{AgentError, RunningLaunch};
 use std::collections::BTreeMap;
@@ -27,6 +29,29 @@ pub struct Started {
     pub endpoint: Option<String>,
 }
 
+/// Who a launch is for, beyond what it runs.
+///
+/// Never part of what makes two launches the same launch: a retried launch
+/// for the same deployment and generation is the first one, whatever else
+/// differs about the request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaunchFor {
+    /// The deployment and generation it realises, written on the container
+    /// as labels; `None` for a launch outside any deployment (a browser, the
+    /// command line).
+    pub owner: Option<Owner>,
+}
+
+/// One running workload, as the launcher's own state reports it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Workload {
+    /// The instance: the first 16 bytes of its container id, so the id the
+    /// plane is told is one the container runtime also answers to.
+    pub id: InstanceId,
+    /// What it runs, and for which deployment.
+    pub instance: Instance,
+}
+
 pub mod docker;
 pub mod idempotent;
 
@@ -46,11 +71,14 @@ pub trait Launcher: Send + Sync {
     /// The same launch already running is returned as it is, never started a
     /// second time: this is what makes a retried `Launch` after a lost reply,
     /// or one sent after the agent restarted, safe without a token. A
-    /// DIFFERENT launch of the recipe already running is `AlreadyRunning`.
+    /// DIFFERENT launch of the recipe already running is `AlreadyRunning`,
+    /// and so is the same launch running for another owner than
+    /// `launch_for` names, when it names one.
     fn launch(
         &self,
         recipe: &Recipe,
         overrides: &BTreeMap<String, ScalarValue>,
+        launch_for: &LaunchFor,
     ) -> Result<Started, AgentError>;
 
     /// Stop a recipe by name. Nothing of it running is success: the state a
@@ -59,6 +87,10 @@ pub trait Launcher: Send + Sync {
 
     /// What is currently running.
     fn running(&self) -> Result<Vec<RunningLaunch>, AgentError>;
+
+    /// Every running workload a stop could reach, with the deployment it was
+    /// launched for: what the reconciler observes.
+    fn workloads(&self) -> Result<Vec<Workload>, AgentError>;
 }
 
 #[cfg(any(test, feature = "test-mocks"))]
@@ -72,11 +104,13 @@ mod mock {
         /// A preview was rendered.
         Preview(String),
         /// A launch was started.
-        Launch(String, BTreeMap<String, ScalarValue>),
+        Launch(String, BTreeMap<String, ScalarValue>, LaunchFor),
         /// A launch was stopped.
         Stop(String),
         /// Running launches were listed.
         Running,
+        /// Workloads were observed.
+        Workloads,
     }
 
     /// Records what the session asked for, and answers as scripted.
@@ -132,8 +166,13 @@ mod mock {
             &self,
             recipe: &Recipe,
             o: &BTreeMap<String, ScalarValue>,
+            launch_for: &LaunchFor,
         ) -> Result<Started, AgentError> {
-            self.record(Call::Launch(recipe.name.clone(), o.clone()));
+            self.record(Call::Launch(
+                recipe.name.clone(),
+                o.clone(),
+                launch_for.clone(),
+            ));
             if let Some(e) = self.fail_launch.lock().expect("lock").take() {
                 return Err(e);
             }
@@ -150,6 +189,11 @@ mod mock {
 
         fn running(&self) -> Result<Vec<RunningLaunch>, AgentError> {
             self.record(Call::Running);
+            Ok(Vec::new())
+        }
+
+        fn workloads(&self) -> Result<Vec<Workload>, AgentError> {
+            self.record(Call::Workloads);
             Ok(Vec::new())
         }
     }
@@ -175,14 +219,18 @@ mod mock_arc {
             &self,
             recipe: &Recipe,
             o: &BTreeMap<String, ScalarValue>,
+            launch_for: &LaunchFor,
         ) -> Result<Started, AgentError> {
-            self.as_ref().launch(recipe, o)
+            self.as_ref().launch(recipe, o, launch_for)
         }
         fn stop(&self, recipe: &str) -> Result<(), AgentError> {
             self.as_ref().stop(recipe)
         }
         fn running(&self) -> Result<Vec<RunningLaunch>, AgentError> {
             self.as_ref().running()
+        }
+        fn workloads(&self) -> Result<Vec<Workload>, AgentError> {
+            self.as_ref().workloads()
         }
     }
 }
