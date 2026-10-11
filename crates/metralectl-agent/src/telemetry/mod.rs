@@ -77,18 +77,25 @@ pub fn sample_device(runner: &dyn ProcessRunner, caps: &TelemetryCaps, busy: boo
         .map(|o| nvidia::parse(o.stdout.lines().next().unwrap_or_default()))
         .unwrap_or_default();
 
+    // Idle is a verdict, not a gap: a low clock with nothing in flight is not
+    // a clamp. Without a clock or a threshold there is no verdict at all.
     let clamped = match (busy, reading.sm_clock_mhz, caps.sm_clock_healthy_mhz) {
-        (true, Some(mhz), Some(healthy)) => mhz < healthy,
-        _ => false,
+        (true, Some(mhz), Some(healthy)) => Some(mhz < healthy),
+        (false, Some(_), Some(_)) => Some(false),
+        _ => None,
     };
 
     let (total, used, unified) = if caps.framebuffer_memory {
-        (reading.memory_total_bytes, reading.memory_used_bytes, false)
+        (
+            reading.memory_total_bytes,
+            reading.memory_used_bytes,
+            Some(false),
+        )
     } else if caps.unified_memory {
         let m = meminfo::read();
-        (m.total_bytes, m.used_bytes, true)
+        (m.total_bytes, m.used_bytes, Some(true))
     } else {
-        (None, None, false)
+        (None, None, None)
     };
 
     DeviceStats {
@@ -144,7 +151,11 @@ mod tests {
         let caps = probe(&runner_with(GB10, 0));
         let d = sample_device(&runner_with(GB10, 0), &caps, false);
         assert_eq!(d.sm_clock_mhz, Some(208));
-        assert!(!d.sm_clock_clamped, "idle must not raise a clamp warning");
+        assert_eq!(
+            d.sm_clock_clamped,
+            Some(false),
+            "idle must not raise a clamp warning"
+        );
     }
 
     #[test]
@@ -154,8 +165,9 @@ mod tests {
         let caps = probe(&runner_with(GB10, 0));
         let clamped = "NVIDIA GB10, [N/A], [N/A], 96 %, 513 MHz, 71, 42.0 W";
         let d = sample_device(&runner_with(clamped, 0), &caps, true);
-        assert!(
+        assert_eq!(
             d.sm_clock_clamped,
+            Some(true),
             "a clamped clock under load must be flagged"
         );
     }
@@ -164,7 +176,10 @@ mod tests {
     fn a_healthy_clock_under_load_is_not_flagged() {
         let caps = probe(&runner_with(GB10, 0));
         let healthy = "NVIDIA GB10, [N/A], [N/A], 96 %, 2405 MHz, 71, 92.0 W";
-        assert!(!sample_device(&runner_with(healthy, 0), &caps, true).sm_clock_clamped);
+        assert_eq!(
+            sample_device(&runner_with(healthy, 0), &caps, true).sm_clock_clamped,
+            Some(false)
+        );
     }
 
     #[test]
@@ -172,8 +187,9 @@ mod tests {
         let caps = probe(&runner_with(GB10, 0));
         let d = sample_device(&runner_with(GB10, 0), &caps, false);
         if caps.unified_memory {
-            assert!(
+            assert_eq!(
                 d.memory_is_unified,
+                Some(true),
                 "the client must be told this is not VRAM"
             );
             assert!(d.memory_total_bytes.unwrap_or(0) > 0);
@@ -188,6 +204,7 @@ mod tests {
         let d = sample_device(&runner_with(GB10, 0), &caps, true);
         assert_eq!(d.gpu_util_pct, None);
         assert_eq!(d.sm_clock_mhz, None);
-        assert!(!d.sm_clock_clamped);
+        assert_eq!(d.sm_clock_clamped, None, "unknown is not \"not clamped\"");
+        assert_eq!(d.memory_is_unified, None, "no memory figures, no kind");
     }
 }

@@ -55,8 +55,8 @@ fn full_vitals() -> NodeVitals {
         memory_used_frac: Metric::reading(0.83),
         memory_total_bytes: Metric::reading(128_000_000_000.0),
         disk_free_bytes: Metric::reading(512_000_000_000.0),
-        docker_ok: true,
-        agent_uptime_s: 86_400,
+        docker_ok: Some(true),
+        agent_uptime_s: Some(86_400),
     }
 }
 

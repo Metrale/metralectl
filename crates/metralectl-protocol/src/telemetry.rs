@@ -84,7 +84,10 @@ pub struct DeviceStats {
     /// Worth its own field rather than leaving it to the client to infer: a
     /// clamped clock makes every throughput number read low while nothing
     /// else looks wrong, which is exactly the failure that hides for weeks.
-    pub sm_clock_clamped: bool,
+    ///
+    /// `None` when the clock or the threshold it is judged against could not
+    /// be read: "unknown" is not "not clamped".
+    pub sm_clock_clamped: Option<bool>,
     /// Temperature, Celsius.
     pub temperature_c: Option<f64>,
     /// Power draw, Watts.
@@ -96,8 +99,9 @@ pub struct DeviceStats {
     pub memory_total_bytes: Option<u64>,
     /// Memory in use, bytes.
     pub memory_used_bytes: Option<u64>,
-    /// Whether the memory figures describe a unified pool.
-    pub memory_is_unified: bool,
+    /// Whether the memory figures describe a unified pool; `None` when there
+    /// are no memory figures to describe.
+    pub memory_is_unified: Option<bool>,
 }
 
 /// Where a launch has got to.
@@ -195,10 +199,17 @@ mod tests {
     fn a_clamped_clock_is_its_own_signal() {
         let d = DeviceStats {
             sm_clock_mhz: Some(513),
-            sm_clock_clamped: true,
+            sm_clock_clamped: Some(true),
             ..Default::default()
         };
         let json = serde_json::to_string(&d).unwrap();
         assert!(json.contains(r#""sm_clock_clamped":true"#), "{json}");
+    }
+
+    #[test]
+    fn an_unknown_clamp_and_memory_kind_are_absent_not_false() {
+        let json = serde_json::to_string(&DeviceStats::default()).unwrap();
+        assert!(json.contains(r#""sm_clock_clamped":null"#), "{json}");
+        assert!(json.contains(r#""memory_is_unified":null"#), "{json}");
     }
 }

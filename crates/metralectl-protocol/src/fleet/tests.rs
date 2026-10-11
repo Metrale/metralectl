@@ -297,3 +297,13 @@ fn an_ansi_escape_cannot_survive_into_a_rendered_name() {
 fn a_bare_carriage_return_cannot_repaint_the_line() {
     assert!(!DisplayName::new("ok\rSPOOFED").as_str().contains('\r'));
 }
+
+#[test]
+fn vitals_nobody_supplied_are_absent_not_a_stopped_runtime_or_a_fresh_start() {
+    // "No vitals" must not read as "docker is down" and "uptime 0".
+    let v = super::NodeVitals::default();
+    assert_eq!((v.docker_ok, v.agent_uptime_s), (None, None));
+    let json = serde_json::to_string(&v).unwrap();
+    assert!(json.contains(r#""docker_ok":null"#), "{json}");
+    assert!(json.contains(r#""agent_uptime_s":null"#), "{json}");
+}

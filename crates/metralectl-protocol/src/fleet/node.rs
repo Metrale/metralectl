@@ -125,10 +125,10 @@ pub struct NodeVitals {
     pub memory_total_bytes: Metric,
     /// Free space on the filesystem holding images and the model cache, bytes.
     pub disk_free_bytes: Metric,
-    /// Whether the container runtime answered.
-    pub docker_ok: bool,
-    /// Seconds since the agent started.
-    pub agent_uptime_s: u64,
+    /// Whether the container runtime answered; `None` when it was not asked.
+    pub docker_ok: Option<bool>,
+    /// Seconds since the agent started; `None` when the agent did not say.
+    pub agent_uptime_s: Option<u64>,
 }
 
 impl Default for NodeVitals {
@@ -142,8 +142,8 @@ impl Default for NodeVitals {
             memory_used_frac: Metric::Unsupported,
             memory_total_bytes: Metric::Unsupported,
             disk_free_bytes: Metric::Unsupported,
-            docker_ok: false,
-            agent_uptime_s: 0,
+            docker_ok: None,
+            agent_uptime_s: None,
         }
     }
 }
