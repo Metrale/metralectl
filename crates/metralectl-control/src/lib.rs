@@ -5,8 +5,9 @@
 //! The single-node lifecycle core: the seven closed control verbs
 //! ([`control::LocalControl`]), the launcher that realises them
 //! ([`launcher::Launcher`], [`launcher::DockerLauncher`]) with idempotent
-//! launch and stop decided from the launcher's own state, and the client-side
-//! bounded retry ([`control::retry`]).
+//! launch and stop decided from the launcher's own state, the client-side
+//! bounded retry ([`control::retry`]), and per-generation convergence of a
+//! deployment onto those verbs ([`reconcile`]).
 //!
 //! A library, not a service: it carries no web server, TLS, service discovery
 //! or telemetry transport, so a host process embeds it in-process and owns its
@@ -27,5 +28,6 @@ pub mod control;
 mod launch_telemetry;
 pub mod launcher;
 pub mod logs;
+pub mod reconcile;
 
 pub use launch_telemetry::LaunchTelemetry;

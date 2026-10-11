@@ -22,12 +22,10 @@ const GB10_UTIL_CAUTION: f64 = 0.88;
 
 /// Whether an accelerator name is the unified-memory part this caution is about.
 ///
-/// Matched on the family rather than an exact string: `nvidia-smi` reports
-/// "NVIDIA GB10" today, and a rename or a variant should keep the warning
-/// rather than silently lose it.
+/// The family match itself is [`crate::hardware::classify`], so this caution
+/// and the hardware gates cannot disagree about which machine is a GB10.
 fn is_gb10(accelerator: &str) -> bool {
-    let a = accelerator.to_ascii_lowercase();
-    a.contains("gb10") || a.contains("grace blackwell")
+    crate::hardware::classify(accelerator).is_some_and(|c| c.as_str() == crate::hardware::GB10)
 }
 
 /// A caution for one setting, or nothing.
