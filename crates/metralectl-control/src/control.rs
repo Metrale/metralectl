@@ -18,7 +18,7 @@ use metralectl_core::registry::{RecipeRef, RegistrySet};
 use metralectl_core::settings;
 use metralectl_protocol::RecipeId;
 use metralectl_protocol::msg::{
-    AgentError, ControlRep, ControlReq, LaunchReading, RecipeInfo, RunningLaunch,
+    AgentError, ControlRep, ControlReq, ControlTrace, LaunchReading, RecipeInfo, RunningLaunch,
 };
 use metralectl_protocol::settings::SettingValue;
 use std::collections::BTreeMap;
@@ -298,9 +298,16 @@ impl LocalControl<'_> {
     /// a refusal is returned as the error so the caller — who knows whose
     /// refusal it is — can name itself in `ControlRep::Refused`.
     ///
+    /// `trace` is the request's attempt and trace, when it carried them; a
+    /// launch writes them on the container it starts.
+    ///
     /// # Errors
     /// Whatever the underlying operation refuses with.
-    pub async fn execute(&self, req: ControlReq) -> Result<ControlRep, AgentError> {
+    pub async fn execute(
+        &self,
+        req: ControlReq,
+        trace: Option<ControlTrace>,
+    ) -> Result<ControlRep, AgentError> {
         match req {
             ControlReq::ListRecipes => Ok(ControlRep::Recipes {
                 recipes: self.recipes(),
@@ -318,6 +325,7 @@ impl LocalControl<'_> {
                 let launch_for = LaunchFor {
                     owner: None,
                     release: None,
+                    trace,
                 };
                 let started = self.launch(&recipe, &settings, launch_for).await?;
                 Ok(ControlRep::Started {

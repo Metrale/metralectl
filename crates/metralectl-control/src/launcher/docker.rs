@@ -172,6 +172,9 @@ impl Launcher for DockerLauncher {
         if let Some(owner) = &launch_for.owner {
             plan.docker.labels.extend(idempotent::owner_labels(owner));
         }
+        if let Some(trace) = &launch_for.trace {
+            plan.docker.labels.extend(idempotent::trace_labels(trace));
+        }
         // A release names its image by content; the recipe's tag could be
         // moved to other bytes after the release was qualified.
         if let Some(release) = &launch_for.release {

@@ -361,6 +361,14 @@ async fn the_relay_emits_only_a_terminal_frame_at_the_target() {
             matches!(f, crate::peer::wire::PeerFrame::Control { .. }),
             "the ONLY control frame a relay may emit is the terminal one: {f:?}"
         );
+        // #49: the relay forwards the origin's attempt and trace unchanged.
+        assert!(
+            matches!(
+                f,
+                crate::peer::wire::PeerFrame::Control { trace: Some(_), .. }
+            ),
+            "the forwarded frame must carry the origin's trace: {f:?}"
+        );
     }
 }
 

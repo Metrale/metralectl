@@ -26,6 +26,10 @@ pub const LABEL_RECIPE: &str = "io.metralectl.recipe";
 pub const LABEL_DEPLOYMENT: &str = "io.metralectl.deployment";
 /// Label recording which generation of its deployment a container realises.
 pub const LABEL_GENERATION: &str = "io.metralectl.generation";
+/// Label recording the control attempt that started a container.
+pub const LABEL_ATTEMPT: &str = "io.metralectl.attempt";
+/// Label recording the trace the starting request belonged to.
+pub const LABEL_TRACE: &str = "io.metralectl.trace";
 
 /// Which node of a launch this command is for.
 #[derive(Debug, Clone, PartialEq, Eq)]

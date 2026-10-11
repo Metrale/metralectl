@@ -9,7 +9,7 @@ use crate::platform::ids::InstanceId;
 use crate::reconcile::contract::{Instance, Owner};
 use crate::release::VerifiedRelease;
 use metralectl_core::{Recipe, ScalarValue};
-use metralectl_protocol::msg::{AgentError, RunningLaunch};
+use metralectl_protocol::msg::{AgentError, ControlTrace, RunningLaunch};
 use std::collections::BTreeMap;
 
 /// A rendered command, for the client to inspect before committing.
@@ -44,6 +44,10 @@ pub struct LaunchFor {
     /// The verified release it runs: its image is run by digest in place of
     /// the recipe's tag. `None` for a launch that names no release.
     pub release: Option<VerifiedRelease>,
+    /// The attempt and trace of the request that asked for it, written on the
+    /// container it starts. A retried launch that finds the container
+    /// running leaves the first attempt's record in place.
+    pub trace: Option<ControlTrace>,
 }
 
 /// One running workload, as the launcher's own state reports it.
@@ -107,8 +111,8 @@ mod mock {
     pub enum Call {
         /// A preview was rendered.
         Preview(String),
-        /// A launch was started.
-        Launch(String, BTreeMap<String, ScalarValue>, LaunchFor),
+        /// A launch was started. Boxed for size: it is the largest call.
+        Launch(String, BTreeMap<String, ScalarValue>, Box<LaunchFor>),
         /// A launch was stopped.
         Stop(String),
         /// Running launches were listed.
@@ -175,7 +179,7 @@ mod mock {
             self.record(Call::Launch(
                 recipe.name.clone(),
                 o.clone(),
-                launch_for.clone(),
+                Box::new(launch_for.clone()),
             ));
             if let Some(e) = self.fail_launch.lock().expect("lock").take() {
                 return Err(e);

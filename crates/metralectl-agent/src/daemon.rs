@@ -50,8 +50,14 @@ mod join;
 mod peer_serve;
 
 #[cfg(test)]
+#[path = "daemon/peer_serve_rig.rs"]
+mod peer_serve_rig;
+#[cfg(test)]
 #[path = "daemon/peer_serve_tests.rs"]
 mod peer_serve_tests;
+#[cfg(test)]
+#[path = "daemon/peer_serve_trace_tests.rs"]
+mod peer_serve_trace_tests;
 
 #[cfg(test)]
 #[path = "daemon/bench_loopback_tests.rs"]

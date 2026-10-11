@@ -21,7 +21,7 @@ use crate::peer::wire::{PeerFrame, read_frame, write_frame};
 use crate::rank::RankService;
 use metralectl_control::control::{ControlHost, LocalControl};
 use metralectl_protocol::fleet::NodeId;
-use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
+use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq, ControlTrace};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -132,11 +132,14 @@ where
                 ctx.rank.abort(&epoch);
                 PeerFrame::Aborted { epoch }
             }
-            PeerFrame::Control { req } => PeerFrame::ControlReply {
-                rep: terminal_control(&ctx.control.control(), sender, &ctx.pins, local, req).await,
+            PeerFrame::Control { req, trace } => PeerFrame::ControlReply {
+                rep: terminal_control(&ctx.control.control(), sender, &ctx.pins, local, req, trace)
+                    .await,
+                trace,
             },
-            PeerFrame::ControlTo { node, req } => PeerFrame::ControlReply {
-                rep: relay_control(ctx, sender, node, req).await,
+            PeerFrame::ControlTo { node, req, trace } => PeerFrame::ControlReply {
+                rep: relay_control(ctx, sender, node, req, trace).await,
+                trace,
             },
             // Attach turns the connection into an event stream and ends it
             // when the job is done; every other bench request is one reply.
@@ -181,6 +184,7 @@ async fn terminal_control(
     pins: &PinStore,
     local: NodeId,
     req: ControlReq,
+    trace: Option<ControlTrace>,
 ) -> ControlRep {
     // T2 — the grant, re-read NOW. "Pinned" is authentication; `controller`
     // is the authorization. Without this check the terminal frame would
@@ -200,7 +204,7 @@ async fn terminal_control(
     // schema validation, same AlreadyRunning, same log-line cap. No argv, no
     // container id, no address was taken from the wire — `ControlReq` cannot
     // carry one.
-    match control.execute(req).await {
+    match control.execute(req, trace).await {
         Ok(rep) => rep,
         Err(error) => ControlRep::Refused { by: local, error },
     }
@@ -216,6 +220,7 @@ async fn relay_control(
     sender: NodeId,
     node: NodeId,
     req: ControlReq,
+    trace: Option<ControlTrace>,
 ) -> ControlRep {
     let local = ctx.identity.id();
     // `transient` separates this relay's DECISIONS (no grant, target not
@@ -280,7 +285,7 @@ async fn relay_control(
         addr,
         node,
         &intro,
-        &req,
+        crate::peer::control::Outgoing { req: &req, trace },
         ctx.answer_budget,
     )
     .await

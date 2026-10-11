@@ -13,10 +13,11 @@ use super::Workload;
 use crate::platform::ids::InstanceId;
 use crate::reconcile::contract::{DeploymentName, Generation, Instance, Owner};
 use metralectl_core::docker::translate::{
-    LABEL_DEPLOYMENT, LABEL_GENERATION, LABEL_RECIPE, container_name,
+    LABEL_ATTEMPT, LABEL_DEPLOYMENT, LABEL_GENERATION, LABEL_RECIPE, LABEL_TRACE, container_name,
 };
 use metralectl_core::docker::{DockerCommand, Placement};
 use metralectl_protocol::RecipeId;
+use metralectl_protocol::msg::ControlTrace;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -145,6 +146,15 @@ pub fn owner_labels(owner: &Owner) -> [(String, String); 2] {
             LABEL_GENERATION.to_owned(),
             owner.generation.get().to_string(),
         ),
+    ]
+}
+
+/// The labels that record the request a container was started for.
+#[must_use]
+pub fn trace_labels(trace: &ControlTrace) -> [(String, String); 2] {
+    [
+        (LABEL_ATTEMPT.to_owned(), trace.attempt.to_string()),
+        (LABEL_TRACE.to_owned(), trace.trace_id.to_string()),
     ]
 }
 

@@ -85,31 +85,37 @@ async fn every_verb_reaches_the_launcher_through_the_same_core() {
     let c = f.control();
 
     assert!(matches!(
-        c.execute(ControlReq::ListRecipes).await,
+        c.execute(ControlReq::ListRecipes, None).await,
         Ok(ControlRep::Recipes { .. })
     ));
     assert!(matches!(
-        c.execute(ControlReq::Preview {
-            recipe: id(REAL),
-            settings: BTreeMap::new(),
-        })
+        c.execute(
+            ControlReq::Preview {
+                recipe: id(REAL),
+                settings: BTreeMap::new(),
+            },
+            None
+        )
         .await,
         Ok(ControlRep::Previewed { .. })
     ));
     assert!(matches!(
-        c.execute(ControlReq::Launch {
-            recipe: id(REAL),
-            settings: BTreeMap::new(),
-        })
+        c.execute(
+            ControlReq::Launch {
+                recipe: id(REAL),
+                settings: BTreeMap::new(),
+            },
+            None
+        )
         .await,
         Ok(ControlRep::Started { .. })
     ));
     assert!(matches!(
-        c.execute(ControlReq::Stop { recipe: id(REAL) }).await,
+        c.execute(ControlReq::Stop { recipe: id(REAL) }, None).await,
         Ok(ControlRep::Stopped { .. })
     ));
     assert!(matches!(
-        c.execute(ControlReq::Status).await,
+        c.execute(ControlReq::Status, None).await,
         Ok(ControlRep::Status { .. })
     ));
     // The launcher saw the same calls the browser path would have made.
@@ -134,10 +140,13 @@ async fn a_relayed_launch_cannot_skip_the_can_launch_gate() {
     };
     let out = f
         .control()
-        .execute(ControlReq::Launch {
-            recipe: id(REAL),
-            settings: BTreeMap::new(),
-        })
+        .execute(
+            ControlReq::Launch {
+                recipe: id(REAL),
+                settings: BTreeMap::new(),
+            },
+            None,
+        )
         .await;
     assert!(
         matches!(out, Err(AgentError::NotLaunchable { .. })),
@@ -151,12 +160,15 @@ async fn a_relayed_launch_cannot_skip_schema_validation() {
     let f = Fixture::new();
     let out = f
         .control()
-        .execute(ControlReq::Launch {
-            recipe: id(REAL),
-            settings: [("no_such_setting".to_owned(), SettingValue::Bool(true))]
-                .into_iter()
-                .collect(),
-        })
+        .execute(
+            ControlReq::Launch {
+                recipe: id(REAL),
+                settings: [("no_such_setting".to_owned(), SettingValue::Bool(true))]
+                    .into_iter()
+                    .collect(),
+            },
+            None,
+        )
         .await;
     assert!(
         matches!(out, Err(AgentError::BadSettings { .. })),
@@ -170,10 +182,13 @@ async fn an_unknown_recipe_is_refused_by_name() {
     let f = Fixture::new();
     let out = f
         .control()
-        .execute(ControlReq::Preview {
-            recipe: id("not-a-recipe"),
-            settings: BTreeMap::new(),
-        })
+        .execute(
+            ControlReq::Preview {
+                recipe: id("not-a-recipe"),
+                settings: BTreeMap::new(),
+            },
+            None,
+        )
         .await;
     assert!(
         matches!(out, Err(AgentError::UnknownRecipe { .. })),
@@ -198,10 +213,13 @@ async fn the_target_caps_the_log_lines_whatever_the_wire_asked() {
         can_launch: &f.can_launch,
         admission: &f.admission,
     };
-    c.execute(ControlReq::Logs {
-        recipe: id(REAL),
-        lines: u32::MAX,
-    })
+    c.execute(
+        ControlReq::Logs {
+            recipe: id(REAL),
+            lines: u32::MAX,
+        },
+        None,
+    )
     .await
     .expect("logs");
     assert_eq!(
@@ -216,14 +234,18 @@ async fn stats_and_logs_without_a_telemetry_source_say_so() {
     let f = Fixture::new();
     let c = f.control();
     assert!(matches!(
-        c.execute(ControlReq::Stats { recipe: id(REAL) }).await,
+        c.execute(ControlReq::Stats { recipe: id(REAL) }, None)
+            .await,
         Err(AgentError::NotReady)
     ));
     assert!(matches!(
-        c.execute(ControlReq::Logs {
-            recipe: id(REAL),
-            lines: 10,
-        })
+        c.execute(
+            ControlReq::Logs {
+                recipe: id(REAL),
+                lines: 10,
+            },
+            None
+        )
         .await,
         Err(AgentError::NotReady)
     ));
@@ -249,6 +271,7 @@ async fn a_remote_override_above_the_gb10_caution_is_refused_not_warned() {
             crate::launcher::LaunchFor {
                 owner: None,
                 release: None,
+                trace: None,
             },
         )
         .await
@@ -292,6 +315,7 @@ async fn the_same_value_is_untouched_on_hardware_the_caution_does_not_claim() {
             crate::launcher::LaunchFor {
                 owner: None,
                 release: None,
+                trace: None,
             },
         )
         .await;

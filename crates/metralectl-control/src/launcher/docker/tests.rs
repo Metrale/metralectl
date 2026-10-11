@@ -55,6 +55,7 @@ fn recipe() -> Recipe {
 const UNOWNED: LaunchFor = LaunchFor {
     owner: None,
     release: None,
+    trace: None,
 };
 
 fn launcher(runner: Arc<RecordingRunner>) -> DockerLauncher {

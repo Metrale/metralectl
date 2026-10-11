@@ -54,6 +54,7 @@ impl Session<'_> {
         let launch_for = metralectl_control::launcher::LaunchFor {
             owner: None,
             release: None,
+            trace: None,
         };
         match self
             .control()

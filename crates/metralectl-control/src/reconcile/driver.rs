@@ -25,7 +25,7 @@ use crate::platform::scalars::{UnixMs, V1};
 use crate::reconcile::contract::Generation;
 use crate::release::VerifiedRelease;
 use metralectl_protocol::RecipeId;
-use metralectl_protocol::msg::AgentError;
+use metralectl_protocol::msg::{AgentError, AttemptId, ControlTrace};
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
@@ -83,7 +83,8 @@ pub struct Answer {
 /// Converge `desired` on this node, taking at most `max_steps` launches and
 /// stops. A launch runs `release`; serving anything needs one, and serving
 /// nothing does not, so a `Run` without a release is refused
-/// `release_unverified` before anything is touched.
+/// `release_unverified` before anything is touched. A launch records `trace`
+/// on the container it starts.
 ///
 /// # Errors
 /// A launch or stop the control core refused or that failed (a cordoned node,
@@ -94,6 +95,7 @@ pub async fn converge(
     control: &LocalControl<'_>,
     desired: &Desired,
     release: Option<&VerifiedRelease>,
+    trace: Option<ControlTrace>,
     max_steps: NonZeroU32,
 ) -> Result<Answer, AgentError> {
     if let Intent::Run { model, .. } = &desired.intent
@@ -131,6 +133,7 @@ pub async fn converge(
                 let launch_for = LaunchFor {
                     owner: Some(owner),
                     release: release.cloned(),
+                    trace,
                 };
                 control
                     .launch(&recipe, &BTreeMap::new(), launch_for)
@@ -190,7 +193,15 @@ pub async fn answer_action(
         reason,
     })?;
     let answered = if action.node_id == node {
-        converge(control, &desired, Some(&target.release), max_steps).await?
+        // The plane's attempt at a deployment action is its idempotency
+        // key: every resend of the action carries the same one.
+        let trace = ControlTrace {
+            attempt: AttemptId::from_bytes(*action.idempotency_key.as_bytes())
+                .map_err(|detail| AgentError::LaunchFailed { detail })?,
+            trace_id: action.trace_id,
+        };
+        let release = Some(&target.release);
+        converge(control, &desired, release, Some(trace), max_steps).await?
     } else {
         let refused = ActionOutcome::Refused(Refused {
             reason: RefusalReason::NotHere,

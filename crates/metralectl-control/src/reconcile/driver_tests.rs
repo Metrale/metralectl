@@ -102,6 +102,7 @@ impl Node {
                 LaunchFor {
                     owner: None,
                     release: None,
+                    trace: None,
                 },
             )
             .await
@@ -114,7 +115,7 @@ impl Node {
             Intent::Run { model, .. } => Some(verified_serving(model)),
             Intent::Stopped => None,
         };
-        converge(&self.agent(), desired, release.as_ref(), steps()).await
+        converge(&self.agent(), desired, release.as_ref(), None, steps()).await
     }
 
     fn label(&self, container: &str, key: &str) -> Option<String> {
@@ -215,10 +216,10 @@ async fn serving_without_a_matching_verified_release_is_refused_untouched() {
     let unverified = ActionOutcome::Refused(Refused {
         reason: RefusalReason::ReleaseUnverified,
     });
-    let none = converge(&node.agent(), &run_a(1), None, steps()).await;
+    let none = converge(&node.agent(), &run_a(1), None, None, steps()).await;
     assert_eq!(none.expect("answers").outcome, unverified);
     let other = verified_serving("Qwen/Qwen3.6-35B-A3B-FP8");
-    let wrong = converge(&node.agent(), &run_a(1), Some(&other), steps()).await;
+    let wrong = converge(&node.agent(), &run_a(1), Some(&other), None, steps()).await;
     assert_eq!(wrong.expect("answers").outcome, unverified);
     assert_eq!(node.daemon.runs(), 0);
     // The control core holds the same line for any caller.
@@ -230,6 +231,7 @@ async fn serving_without_a_matching_verified_release_is_refused_untouched() {
             LaunchFor {
                 owner: None,
                 release: Some(other),
+                trace: None,
             },
         )
         .await
@@ -360,6 +362,7 @@ async fn the_launcher_does_not_adopt_another_deployments_container() {
             LaunchFor {
                 owner: Some(other),
                 release: None,
+                trace: None,
             },
         )
         .await
@@ -433,6 +436,18 @@ async fn an_action_is_answered_in_the_result_contract_and_only_for_this_node() {
             .to_string()
     );
     assert_eq!(json["instances"].as_array().map(Vec::len), Some(1));
+
+    // The container records the action it was launched for: its idempotency
+    // key as the attempt, and its trace.
+    let container = format!("metrale-{A}");
+    assert_eq!(
+        node.label(&container, "io.metralectl.attempt").as_deref(),
+        Some("21".repeat(16).as_str())
+    );
+    assert_eq!(
+        node.label(&container, "io.metralectl.trace").as_deref(),
+        Some("4bf92f3577b34da6a3ce929d0e0e4736")
+    );
 
     let drain = action(&"66".repeat(32), "drain");
     assert!(

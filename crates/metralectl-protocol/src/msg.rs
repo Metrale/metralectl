@@ -445,7 +445,7 @@ pub use error::AgentError;
 // Its own file so the closed pair can be read — and reviewed — in isolation
 // from the browser surface it mirrors.
 mod control;
-pub use control::{ControlRep, ControlReq};
+pub use control::{AttemptId, ControlRep, ControlReq, ControlTrace};
 
 // The benchmark-job vocabulary: what a `bench`-granted peer may ask a node to
 // build and run, the event stream it gets back, and the node's own capability

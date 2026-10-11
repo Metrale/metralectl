@@ -333,6 +333,7 @@ pub(super) async fn spawn_fake_peer(
                         PeerFrame::Control { .. } => {
                             tokio::time::sleep(delay).await;
                             PeerFrame::ControlReply {
+                                trace: None,
                                 rep: ControlRep::Status {
                                     running: Vec::new(),
                                 },
@@ -342,6 +343,7 @@ pub(super) async fn spawn_fake_peer(
                         // violation itself; answer with a loud refusal so
                         // the test that hits it fails visibly.
                         PeerFrame::ControlTo { node, .. } => PeerFrame::ControlReply {
+                            trace: None,
                             rep: ControlRep::Refused {
                                 by: local,
                                 error: metralectl_protocol::msg::AgentError::RelayRefused {

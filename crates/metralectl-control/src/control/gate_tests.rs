@@ -71,10 +71,13 @@ impl Node {
 }
 
 async fn relayed_launch(c: &LocalControl<'_>, recipe: &str) -> Result<ControlRep, AgentError> {
-    c.execute(ControlReq::Launch {
-        recipe: id(recipe),
-        settings: BTreeMap::new(),
-    })
+    c.execute(
+        ControlReq::Launch {
+            recipe: id(recipe),
+            settings: BTreeMap::new(),
+        },
+        None,
+    )
     .await
 }
 
@@ -109,6 +112,7 @@ async fn a_recipe_declaring_other_hardware_is_refused_before_the_launcher() {
                 crate::launcher::LaunchFor {
                     owner: None,
                     release: None,
+                    trace: None,
                 },
             )
             .await;
@@ -148,12 +152,15 @@ async fn a_cordoned_or_draining_node_refuses_launches_and_still_stops() {
         // What runs can still be wound down and looked at.
         let stop = n
             .on(GB10)
-            .execute(ControlReq::Stop {
-                recipe: id(ANYWHERE),
-            })
+            .execute(
+                ControlReq::Stop {
+                    recipe: id(ANYWHERE),
+                },
+                None,
+            )
             .await;
         assert!(matches!(stop, Ok(ControlRep::Stopped { .. })), "{stop:?}");
-        assert!(n.on(GB10).execute(ControlReq::Status).await.is_ok());
+        assert!(n.on(GB10).execute(ControlReq::Status, None).await.is_ok());
         assert!(n.launcher.calls().contains(&Call::Stop(ANYWHERE.into())));
     }
 }
