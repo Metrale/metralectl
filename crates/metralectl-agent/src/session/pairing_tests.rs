@@ -125,6 +125,9 @@ pub(super) async fn ready_with_fleet<'a>(
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: f.can_launch.clone(),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: Some(fleet),
         cluster: None,
         telemetry: None,

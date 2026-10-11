@@ -36,6 +36,9 @@ pub struct SessionDeps<'a> {
     pub token: &'a str,
     /// Whether this machine can run a recipe at all.
     pub can_launch: Result<(), String>,
+    /// Whether this node takes new launches; shared with the peer channel's
+    /// control core, so a cordon is heard by both.
+    pub admission: std::sync::Arc<metralectl_control::admission::AdmissionGate>,
     /// What this machine's accelerator reports itself to be. Carried so the
     /// launch path can refuse a setting that is merely CAUTIONED at a keyboard
     /// — there is no operator on this surface to read a warning. Empty when
@@ -358,6 +361,7 @@ impl<'a> Session<'a> {
             telemetry: self.deps.telemetry,
             can_launch: &self.deps.can_launch,
             accelerator: self.deps.accelerator,
+            admission: &self.deps.admission,
         }
     }
 

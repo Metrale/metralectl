@@ -91,6 +91,9 @@ async fn an_invitation_from_a_wireless_machine_still_carries_an_address() {
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: f.can_launch.clone(),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: Some(&fleet),
         cluster: None,
         telemetry: None,

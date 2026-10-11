@@ -22,6 +22,7 @@ struct Fixture {
     registry: RegistrySet,
     launcher: std::sync::Arc<RecordingLauncher>,
     can_launch: Result<(), String>,
+    admission: crate::admission::AdmissionGate,
 }
 
 impl Fixture {
@@ -30,6 +31,7 @@ impl Fixture {
             registry: RegistrySet::builtin_only(),
             launcher: std::sync::Arc::new(RecordingLauncher::new()),
             can_launch: Ok(()),
+            admission: crate::admission::AdmissionGate::new(crate::admission::Admission::Open),
         }
     }
 
@@ -40,6 +42,7 @@ impl Fixture {
             launcher: self.launcher.clone(),
             telemetry: None,
             can_launch: &self.can_launch,
+            admission: &self.admission,
         }
     }
 
@@ -50,6 +53,7 @@ impl Fixture {
             launcher: self.launcher.clone(),
             telemetry: None,
             can_launch: &self.can_launch,
+            admission: &self.admission,
         }
     }
 }
@@ -192,6 +196,7 @@ async fn the_target_caps_the_log_lines_whatever_the_wire_asked() {
         launcher: f.launcher.clone(),
         telemetry: Some(&telemetry),
         can_launch: &f.can_launch,
+        admission: &f.admission,
     };
     c.execute(ControlReq::Logs {
         recipe: id(REAL),

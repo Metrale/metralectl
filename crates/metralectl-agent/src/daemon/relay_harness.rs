@@ -154,6 +154,9 @@ pub(super) async fn spawn_serving_bench(
             None,
             Ok(()),
             "NVIDIA GB10".to_owned(),
+            Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
         )),
         peer_port: a.port,
         answer_budget,

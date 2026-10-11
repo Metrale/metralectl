@@ -250,6 +250,13 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
         Box::new(NvidiaDevices),
     ));
 
+    // ONE admission gate, for the same reason: a cordon must reach the browser
+    // session and the peer channel alike. Nothing in this agent cordons; a
+    // host that embeds the control core does, through `ControlHost`.
+    let admission = Arc::new(metralectl_control::admission::AdmissionGate::new(
+        metralectl_control::admission::Admission::Open,
+    ));
+
     // The peer channel's control core. Its own telemetry instance, because
     // the listener outlives any session and cannot borrow from `AgentState`
     // — the checks are identical because both are the one `LocalControl`.
@@ -264,6 +271,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
         ))),
         can_launch.clone(),
         accelerator.clone(),
+        Arc::clone(&admission),
     ));
 
     let state = Arc::new(AgentState {
@@ -271,6 +279,7 @@ pub fn run(args: &AgentRunArgs) -> Result<()> {
         launcher,
         token: tok.clone().unwrap_or_default(),
         can_launch: can_launch.clone(),
+        admission,
         accelerator: accelerator.clone(),
         joining: Some(Arc::clone(&joining)),
         port: args.port,

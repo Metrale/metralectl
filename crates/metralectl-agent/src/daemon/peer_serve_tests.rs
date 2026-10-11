@@ -136,6 +136,9 @@ fn rig(tag: &str) -> Rig {
             None,
             Ok(()),
             "NVIDIA GB10".to_owned(),
+            Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
         )),
         peer_port: 34334,
         // Tests never reach a real dial; the budget only has to exist.

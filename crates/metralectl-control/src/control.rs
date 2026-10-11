@@ -11,6 +11,7 @@
 //! (SBIO), so both callers stay testable without a container runtime.
 
 use crate::LaunchTelemetry;
+use crate::admission::AdmissionGate;
 use crate::launcher::{Launcher, Preview, Started};
 use crate::logs::LogTail;
 use metralectl_core::registry::{RecipeRef, RegistrySet};
@@ -41,6 +42,8 @@ pub struct LocalControl<'a> {
     /// hardware-aware refusal in [`Self::launch`]. Empty when the probe found
     /// nothing — which reads as "not GB10" and so gates nothing.
     pub accelerator: &'a str,
+    /// Whether this node takes new launches at all.
+    pub admission: &'a AdmissionGate,
 }
 
 /// Run a blocking launcher call on tokio's blocking pool.
@@ -109,8 +112,9 @@ impl LocalControl<'_> {
     /// Start a recipe on this machine.
     ///
     /// # Errors
-    /// If this machine cannot launch, the recipe is unknown or unlaunchable,
-    /// the settings are rejected, or the launcher refuses.
+    /// If this machine cannot launch or is cordoned or draining, the recipe is
+    /// unknown, unlaunchable or needs other hardware, the settings are
+    /// rejected, or the launcher refuses.
     pub async fn launch(
         &self,
         recipe_id: &RecipeId,
@@ -122,11 +126,30 @@ impl LocalControl<'_> {
                 reason: why.clone(),
             });
         }
+        if let Err(reason) = self.admission.current().admits() {
+            return Err(AgentError::NotLaunchable {
+                recipe: recipe_id.clone(),
+                reason,
+            });
+        }
         let recipe = self.resolve(recipe_id)?;
         if let Err(why) = recipe.launchable() {
             return Err(AgentError::NotLaunchable {
                 recipe: recipe_id.clone(),
                 reason: why.to_string(),
+            });
+        }
+        // A recipe that declares its hardware is refused anywhere else, by
+        // every caller: on other hardware it fails late, inside a container,
+        // or worse, serves wrongly. The machine side is the accelerator name
+        // the setting caution below already reads.
+        if let Some(required) = &recipe.requires
+            && let Err(why) =
+                metralectl_core::hardware::check(&required.hardware_class, self.accelerator)
+        {
+            return Err(AgentError::NotLaunchable {
+                recipe: recipe_id.clone(),
+                reason: format!("this machine cannot run it: {why}"),
             });
         }
         let overrides = check_settings(requested)?;
@@ -335,6 +358,7 @@ pub struct ControlHost {
     telemetry: Option<Box<dyn LaunchTelemetry>>,
     can_launch: Result<(), String>,
     accelerator: String,
+    admission: std::sync::Arc<AdmissionGate>,
 }
 
 impl ControlHost {
@@ -346,6 +370,7 @@ impl ControlHost {
         telemetry: Option<Box<dyn LaunchTelemetry>>,
         can_launch: Result<(), String>,
         accelerator: String,
+        admission: std::sync::Arc<AdmissionGate>,
     ) -> Self {
         Self {
             registry,
@@ -353,7 +378,15 @@ impl ControlHost {
             telemetry,
             can_launch,
             accelerator,
+            admission,
         }
+    }
+
+    /// The admission gate this host's control core reads, for the host to
+    /// cordon or drain the node through.
+    #[must_use]
+    pub fn admission(&self) -> &AdmissionGate {
+        &self.admission
     }
 
     /// The control core over this host's dependencies.
@@ -365,6 +398,7 @@ impl ControlHost {
             launcher: std::sync::Arc::clone(&self.launcher),
             telemetry: self.telemetry.as_deref(),
             can_launch: &self.can_launch,
+            admission: &self.admission,
         }
     }
 }
@@ -380,3 +414,7 @@ pub mod retry;
 #[cfg(test)]
 #[path = "control/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "control/gate_tests.rs"]
+mod gate_tests;

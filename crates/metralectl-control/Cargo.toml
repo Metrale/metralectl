@@ -24,6 +24,7 @@ tokio = { version = "1", features = ["rt", "time"] }
 # The recording mocks are feature-gated so they never ship in a release build.
 metralectl-core = { workspace = true, features = ["test-mocks"] }
 tokio = { version = "1", features = ["rt", "macros", "time"] }
+serde_yaml_ng.workspace = true
 
 [features]
 test-mocks = []

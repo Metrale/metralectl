@@ -37,6 +37,9 @@ pub struct AgentState {
     pub token: String,
     /// Whether this machine can run a recipe, and why not if it cannot.
     pub can_launch: Result<(), String>,
+    /// Whether this node takes new launches, shared with the peer channel's
+    /// control host.
+    pub admission: Arc<metralectl_control::admission::AdmissionGate>,
     /// What this machine's accelerator reports itself to be, for the launch
     /// path's hardware-aware refusal. Empty when the probe found nothing.
     pub accelerator: String,
@@ -176,6 +179,7 @@ async fn run_session(mut socket: ws::WebSocket, state: Arc<AgentState>) {
         launcher: state.launcher.clone(),
         token: &state.token,
         can_launch: state.can_launch.clone(),
+        admission: Arc::clone(&state.admission),
         accelerator: &state.accelerator,
         fleet: state.fleet.as_deref(),
         cluster: state.cluster.as_deref(),

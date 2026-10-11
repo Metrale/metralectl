@@ -67,6 +67,9 @@ pub struct RawRecipe {
     pub command: Option<String>,
     #[serde(default)]
     pub metadata: BTreeMap<String, serde_yaml_ng::Value>,
+    /// What the recipe needs of the machine; absent declares nothing.
+    #[serde(default)]
+    pub requires: Option<crate::hardware::HardwareRequirement>,
 
     /// Everything the schema does not name.
     ///

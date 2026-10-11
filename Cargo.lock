@@ -885,6 +885,7 @@ dependencies = [
  "metralectl-protocol",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "tokio",
 ]
 

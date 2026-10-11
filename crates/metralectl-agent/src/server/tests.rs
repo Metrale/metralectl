@@ -15,6 +15,9 @@ fn state(port: u16) -> Arc<AgentState> {
         launcher: std::sync::Arc::new(RecordingLauncher::new()),
         token: TOKEN.to_string(),
         can_launch: Ok(()),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         joining: None,
         relay: None,
         fleet: None,
@@ -212,6 +215,9 @@ async fn a_launch_does_not_park_the_only_worker() {
             launcher,
             token: TOKEN,
             can_launch: Ok(()),
+            admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
             fleet: None,
             cluster: None,
             telemetry: None,

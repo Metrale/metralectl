@@ -24,6 +24,7 @@
 /// `clippy::type_complexity` objects to, correctly.
 pub type BoxFut<'a, T> = std::pin::Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
 
+pub mod admission;
 pub mod control;
 mod launch_telemetry;
 pub mod launcher;

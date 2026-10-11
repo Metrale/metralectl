@@ -53,6 +53,9 @@ impl Fixture {
             launcher: self.launcher.clone(),
             token: TOKEN,
             can_launch: self.can_launch.clone(),
+            admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
             fleet: None,
             cluster: None,
             telemetry: None,
@@ -88,6 +91,9 @@ fn the_agent_speaks_first_with_a_version_range() {
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: Ok(()),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: None,
         cluster: None,
         telemetry: None,

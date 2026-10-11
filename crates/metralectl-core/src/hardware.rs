@@ -62,6 +62,17 @@ impl std::fmt::Display for HardwareClass {
     }
 }
 
+/// What a recipe declares it needs of the machine it runs on.
+///
+/// Closed: an unknown key fails the recipe's parse, because a misspelt
+/// requirement that silently gated nothing is worse than none.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HardwareRequirement {
+    /// The class the recipe runs correctly on.
+    pub hardware_class: HardwareClass,
+}
+
 /// The unified-memory DGX Spark part.
 pub const GB10: &str = "gb10";
 

@@ -197,3 +197,27 @@ fn an_interior_dash_is_still_an_ordinary_character() {
     .expect("a normal recipe still parses");
     assert_eq!(r.model, "unsloth/Qwen3.8-27B-NVFP4");
 }
+
+#[test]
+fn a_declared_hardware_requirement_is_parsed() {
+    let r = parse(&format!("{MINIMAL}requires:\n  hardware_class: gb10\n")).expect("parses");
+    assert_eq!(
+        r.requires.map(|q| q.hardware_class.as_str().to_owned()),
+        Some("gb10".to_owned())
+    );
+    assert!(r.unknown_keys.is_empty(), "{:?}", r.unknown_keys);
+    assert_eq!(parse(MINIMAL).expect("parses").requires, None);
+}
+
+#[test]
+fn a_misspelt_or_malformed_requirement_fails_the_parse() {
+    // A requirement that silently gated nothing would be worse than none.
+    for bad in [
+        "requires:\n  hardwar_class: gb10\n",
+        "requires:\n  hardware_class: GB10\n",
+        "requires:\n  hardware_class: gb10\n  extra: 1\n",
+    ] {
+        let err = parse(&format!("{MINIMAL}{bad}")).expect_err(bad);
+        assert!(matches!(err, RecipeError::Parse { .. }), "{bad}: {err:?}");
+    }
+}

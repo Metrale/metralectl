@@ -70,6 +70,9 @@ pub struct Recipe {
     pub env: BTreeMap<String, String>,
     /// Human description, from the top level or from `metadata.description`.
     pub description: Option<String>,
+    /// The hardware the recipe declares it needs. `None` declares nothing,
+    /// and so is gated by nothing; a declaration is enforced at launch.
+    pub requires: Option<crate::hardware::HardwareRequirement>,
     /// Top-level keys the schema does not name. Reported, never applied.
     pub unknown_keys: Vec<String>,
     /// Executable-content or isolation keys the recipe carries.
@@ -233,6 +236,7 @@ impl Recipe {
             defaults: raw.defaults.clone(),
             env: raw.env.clone(),
             description,
+            requires: raw.requires.clone(),
             unknown_keys: raw.unknown_keys(),
             refused_keys,
         })
