@@ -24,3 +24,9 @@ metralectl_protocol::hex_id! {
     /// A full git commit; never a branch or a tag.
     pub struct GitCommit([u8; 20]); nonzero: false
 }
+
+metralectl_protocol::hex_id! {
+    /// A release signer: the 32-byte identity of a registry principal,
+    /// `SHA3-256("mfs/node-id/v1" ‖ Ed25519 key ‖ ML-DSA-65 key)`.
+    pub struct SignerId([u8; 32]); nonzero: false
+}

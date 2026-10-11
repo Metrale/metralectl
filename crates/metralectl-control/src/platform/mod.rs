@@ -10,7 +10,8 @@
 //! these types is a valid one. `tests/platform_contracts.rs` proves it over
 //! the bundle's fixtures. Bound here are the kinds the agent reads or writes:
 //! `deployment-action`, `deployment-action-result`, `model-deployment`,
-//! `hardware-fingerprint`, `release-manifest` and `model-recipe`.
+//! `hardware-fingerprint`, `release-manifest`, `model-recipe`,
+//! `document-signature` and `revocation-list`.
 
 pub mod action;
 pub mod canonical;
@@ -20,4 +21,6 @@ pub mod fingerprint;
 pub mod ids;
 pub mod recipe;
 pub mod release;
+pub mod revocation;
 pub mod scalars;
+pub mod signature;

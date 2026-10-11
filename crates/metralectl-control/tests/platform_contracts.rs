@@ -17,18 +17,22 @@ use metralectl_control::platform::deployment::ModelDeployment;
 use metralectl_control::platform::fingerprint::HardwareFingerprint;
 use metralectl_control::platform::recipe::ModelRecipe;
 use metralectl_control::platform::release::ReleaseManifest;
+use metralectl_control::platform::revocation::RevocationList;
+use metralectl_control::platform::signature::DocumentSignature;
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 /// The kinds this repository binds to its own types.
-const BOUND: [&str; 6] = [
+const BOUND: [&str; 8] = [
     "deployment-action",
     "deployment-action-result",
     "model-deployment",
     "hardware-fingerprint",
     "release-manifest",
     "model-recipe",
+    "document-signature",
+    "revocation-list",
 ];
 
 fn bundle() -> PathBuf {
@@ -109,6 +113,8 @@ fn bind(kind: &str, doc: &Value) -> Result<String, String> {
         "hardware-fingerprint" => take::<HardwareFingerprint>(doc),
         "release-manifest" => take::<ReleaseManifest>(doc),
         "model-recipe" => take::<ModelRecipe>(doc),
+        "document-signature" => take::<DocumentSignature>(doc),
+        "revocation-list" => take::<RevocationList>(doc),
         other => panic!("{other} is not bound"),
     }
 }
@@ -298,6 +304,14 @@ fn every_other_closed_word_of_a_bound_kind_parses() {
     each::<SbomFormat>(
         "release-manifest.v1.schema.json",
         "/properties/sbom/properties/format/enum",
+    );
+    each::<metralectl_control::platform::signature::SignedKind>(
+        "document-signature.v1.schema.json",
+        "/properties/kind/enum",
+    );
+    each::<metralectl_control::platform::revocation::RevocationReason>(
+        "revocation-list.v1.schema.json",
+        "/properties/revoked/items/properties/reason/enum",
     );
     each::<AbsentReason>("common.v1.schema.json", "/$defs/absent_reason/enum");
     each::<StoragePrecision>("common.v1.schema.json", "/$defs/storage_precision/enum");

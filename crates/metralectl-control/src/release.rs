@@ -9,7 +9,8 @@
 //! content and refuses, each for its own reason:
 //!
 //! - **changed**: its canonical digest is not the one the deployment names;
-//! - **revoked**: the manifest, or the key that signed it, is withdrawn;
+//! - **revoked**: the manifest, or the key that signed it, is withdrawn, or
+//!   every compatibility receipt it cites is;
 //! - **unsigned**: no trusted signer's signature over that digest;
 //! - **unbound**: the recipe shipped with it (`recipe.json`, a
 //!   `model-recipe` document, DECISIONS PC-W) is not the one its `recipe`
@@ -19,40 +20,50 @@
 //!   machine's fingerprint, or for another model than this machine's recipe
 //!   serves.
 //!
-//! The signature scheme is behind [`SignatureVerifier`]. The platform's
-//! release-signing contract (a detached signature over the manifest digest)
-//! is not yet published in the bundle this repository vendors, so no scheme
-//! is implemented here; a host supplies one.
+//! The signature is a `document-signature` (the platform's hybrid scheme);
+//! [`SignatureVerifier`] checks it against the host's trust anchor.
+//! [`signing::RegistryPrincipals`] is the scheme itself, over registry
+//! principals the host names explicitly, and [`revocations`] builds
+//! [`Revoked`] from a revocation list only once its own signature verifies.
 
 use crate::platform::canonical::digest;
 use crate::platform::ids::Sha256Digest;
+pub use crate::platform::ids::SignerId;
 use crate::platform::recipe::ModelRecipe;
 use crate::platform::release::ReleaseManifest;
 use crate::platform::scalars::{ModelRepository, OciImage};
+use crate::platform::signature::{DocumentSignature, SignedKind};
 use metralectl_core::hardware::{HardwareClass, classify};
 use std::collections::BTreeSet;
 
-metralectl_protocol::hex_id! {
-    /// A release signer: 32 bytes, the signer's identity in the platform.
-    pub struct SignerId([u8; 32]); nonzero: false
-}
+pub mod revocations;
+pub mod signing;
 
-/// Checks a detached signature over a manifest digest against the trust
-/// anchors the host holds.
+/// Checks a `document-signature` against the trust anchors the host holds.
 pub trait SignatureVerifier: Send + Sync {
-    /// The signer, when `signature` is a trusted signer's signature over
-    /// exactly `manifest`.
+    /// The signer, when `signature` is a trusted signer's valid signature of
+    /// a `kind` document over exactly `document`.
     ///
     /// # Errors
-    /// Why it is not: malformed, untrusted signer, or not over this digest.
-    fn verify(&self, manifest: &Sha256Digest, signature: &[u8]) -> Result<SignerId, String>;
+    /// Why it is not: another kind or document, an untrusted signer, or a
+    /// half that does not verify.
+    fn verify(
+        &self,
+        kind: SignedKind,
+        document: &Sha256Digest,
+        signature: &DocumentSignature,
+    ) -> Result<SignerId, String>;
 }
 
-/// What the platform has withdrawn, as the host last learned it.
+/// What the platform has withdrawn, as the host last learned it from a
+/// verified revocation list ([`revocations::accept`]); empty when no list
+/// has been accepted yet.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Revoked {
     /// Release manifests, by digest.
     pub manifests: BTreeSet<Sha256Digest>,
+    /// Compatibility receipts, by digest.
+    pub receipts: BTreeSet<Sha256Digest>,
     /// Release signers.
     pub signers: BTreeSet<SignerId>,
 }
@@ -83,6 +94,9 @@ pub enum Unverified {
     ManifestRevoked,
     /// The key that signed it is withdrawn.
     SignerRevoked(SignerId),
+    /// Every compatibility receipt it cites is withdrawn, so nothing
+    /// qualifies it any more.
+    ReceiptsRevoked,
     /// No trusted signature over its digest.
     Unsigned(String),
     /// The shipped recipe is not the one the manifest binds, or disagrees
@@ -118,6 +132,9 @@ impl std::fmt::Display for Unverified {
             ),
             Self::ManifestRevoked => f.write_str("the release manifest is revoked"),
             Self::SignerRevoked(s) => write!(f, "the release was signed by revoked signer {s}"),
+            Self::ReceiptsRevoked => {
+                f.write_str("every compatibility receipt the release cites is revoked")
+            }
             Self::Unsigned(why) => write!(f, "the release manifest is not signed: {why}"),
             Self::Recipe { at } => write!(
                 f,
@@ -185,7 +202,7 @@ pub fn verify(
     manifest: &ReleaseManifest,
     recipe: &ModelRecipe,
     expected: &Sha256Digest,
-    signature: &[u8],
+    signature: &DocumentSignature,
     verifier: &dyn SignatureVerifier,
     revoked: &Revoked,
     here: ThisMachine<'_>,
@@ -201,10 +218,17 @@ pub fn verify(
         return Err(Unverified::ManifestRevoked);
     }
     let signer = verifier
-        .verify(&actual, signature)
+        .verify(SignedKind::ReleaseManifest, &actual, signature)
         .map_err(Unverified::Unsigned)?;
     if revoked.signers.contains(&signer) {
         return Err(Unverified::SignerRevoked(signer));
+    }
+    if manifest
+        .receipts
+        .iter()
+        .all(|r| revoked.receipts.contains(r))
+    {
+        return Err(Unverified::ReceiptsRevoked);
     }
     bound(manifest, recipe)?;
     let class = classify(here.accelerator);

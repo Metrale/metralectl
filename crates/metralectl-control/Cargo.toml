@@ -20,6 +20,13 @@ serde.workspace = true
 serde_json = "1"
 sha2.workspace = true
 tokio = { version = "1", features = ["rt", "time"] }
+# Release signatures (document-signature.v1): the crates and versions Metrale/mfs
+# signs and verifies with (metrale-crypto), so both sides run one implementation.
+# Pure Rust, Apache-2.0 OR MIT, no network surface. Pinned exactly: pre-1.0
+# signature code whose encodings must not move under the platform's.
+ed25519-dalek = { version = "=3.0.0", default-features = false }
+ml-dsa = { version = "=0.1.1", default-features = false }
+sha3 = { version = "=0.12.0", default-features = false }
 
 [dev-dependencies]
 # The recording mocks are feature-gated so they never ship in a release build.

@@ -2,7 +2,8 @@
 
 //! Each refusal, from the bundle's own valid manifest with one thing changed.
 
-use super::testing::{TestVerifier, manifest, qualified_fingerprint, recipe, sign, signer};
+use super::signing::{RegistryPrincipal, RegistryPrincipals};
+use super::testing::{TestSigner, manifest, qualified_fingerprint, recipe, signer};
 use super::*;
 use crate::platform::canonical::sha256;
 
@@ -13,8 +14,8 @@ struct Case {
     manifest: ReleaseManifest,
     recipe: ModelRecipe,
     expected: Sha256Digest,
-    signature: Vec<u8>,
-    trusted: Vec<SignerId>,
+    signature: DocumentSignature,
+    trusted: Vec<RegistryPrincipal>,
     revoked: Revoked,
     accelerator: &'static str,
     fingerprint: Option<Sha256Digest>,
@@ -27,11 +28,11 @@ impl Case {
         let m = manifest();
         let d = digest(&m).expect("integers");
         Self {
-            signature: sign(&signer(), &d),
+            signature: signer().sign(SignedKind::ReleaseManifest, &d),
             manifest: m,
             recipe: recipe(),
             expected: d,
-            trusted: vec![signer()],
+            trusted: vec![signer().principal()],
             revoked: Revoked::default(),
             accelerator: GB10,
             fingerprint: Some(qualified_fingerprint()),
@@ -45,7 +46,7 @@ impl Case {
             &self.recipe,
             &self.expected,
             &self.signature,
-            &TestVerifier(self.trusted.clone()),
+            &RegistryPrincipals::new(&self.trusted).expect("an anchor"),
             &self.revoked,
             ThisMachine {
                 accelerator: self.accelerator,
@@ -65,7 +66,7 @@ fn a_signed_qualified_manifest_verifies_and_pins_its_image_by_digest() {
          6105d6cc76af400325e94d588ce511be5bfdbb73b437dc51eca43917d7a43e3d"
     );
     assert_eq!(v.model(), MODEL);
-    assert_eq!(v.signer(), &signer());
+    assert_eq!(v.signer(), &signer().id());
     assert_eq!(v.digest(), &Case::good().expected);
 }
 
@@ -84,8 +85,17 @@ fn a_revoked_manifest_or_signer_is_refused() {
     c.revoked.manifests.insert(c.expected);
     assert_eq!(c.run(), Err(Unverified::ManifestRevoked));
     let mut c = Case::good();
-    c.revoked.signers.insert(signer());
-    assert_eq!(c.run(), Err(Unverified::SignerRevoked(signer())));
+    c.revoked.signers.insert(signer().id());
+    assert_eq!(c.run(), Err(Unverified::SignerRevoked(signer().id())));
+    // One receipt left unrevoked still qualifies it; none left does not.
+    let mut c = Case::good();
+    c.revoked.receipts.insert(sha256(b"another receipt"));
+    assert!(c.run().is_ok());
+    let mut c = Case::good();
+    c.revoked
+        .receipts
+        .extend(c.manifest.receipts.iter().copied());
+    assert_eq!(c.run(), Err(Unverified::ReceiptsRevoked));
 }
 
 /// Sabotage: accepting any signature from a trusted signer verifies one made
@@ -93,13 +103,16 @@ fn a_revoked_manifest_or_signer_is_refused() {
 #[test]
 fn an_unsigned_untrusted_or_misdirected_signature_is_refused() {
     let mut c = Case::good();
-    c.signature = Vec::new();
+    c.trusted = vec![TestSigner::from_seed(8).principal()];
     assert!(matches!(c.run(), Err(Unverified::Unsigned(_))));
     let mut c = Case::good();
-    c.trusted = vec![SignerId::from_bytes([8; 32]).expect("bytes")];
+    c.signature = signer().sign(SignedKind::ReleaseManifest, &sha256(b"another manifest"));
     assert!(matches!(c.run(), Err(Unverified::Unsigned(_))));
+    // The right digest under the other kind's domain is not a release
+    // signature, however the kind field is relabelled.
     let mut c = Case::good();
-    c.signature = sign(&signer(), &sha256(b"another manifest"));
+    c.signature = signer().sign(SignedKind::RevocationList, &c.expected);
+    c.signature.kind = SignedKind::ReleaseManifest;
     assert!(matches!(c.run(), Err(Unverified::Unsigned(_))));
 }
 
@@ -156,7 +169,7 @@ fn a_recipe_the_manifest_does_not_bind_is_refused() {
         edit(&mut c.recipe);
         c.manifest.recipe = digest(&c.recipe).expect("integers");
         c.expected = digest(&c.manifest).expect("integers");
-        c.signature = sign(&signer(), &c.expected);
+        c.signature = signer().sign(SignedKind::ReleaseManifest, &c.expected);
         assert_eq!(c.run(), Err(Unverified::Recipe { at }), "{at}");
     }
 }

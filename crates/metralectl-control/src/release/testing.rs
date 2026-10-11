@@ -1,60 +1,108 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! A stand-in signature scheme and a verified release, for tests.
+//! A release signer with real keys, and releases it signs, for tests.
 //!
-//! Justification for the stand-in: the platform's release-signing scheme is
-//! not yet in the vendored bundle, so no real verifier exists to test the
-//! gate with. This one binds a signature to one signer and one digest, which
-//! is the property the gate relies on; it is a keyed hash, not a signature,
-//! and is compiled for tests only.
+//! The keys come from fixed seeds and the signatures are the real scheme
+//! (Ed25519 and ML-DSA-65 over `domain ‖ digest`), so every test of the gate
+//! runs the production verifier, [`RegistryPrincipals`]. Signing lives here
+//! because an agent only ever verifies.
 
-use super::{Revoked, SignatureVerifier, SignerId, ThisMachine, VerifiedRelease, verify};
-use crate::platform::canonical::{digest, sha256};
+use super::signing::{RegistryPrincipal, RegistryPrincipals, SigningKeys, signed_string};
+use super::{Revoked, SignerId, ThisMachine, VerifiedRelease, verify};
+use crate::platform::canonical::digest;
 use crate::platform::ids::Sha256Digest;
 use crate::platform::recipe::ModelRecipe;
 use crate::platform::release::ReleaseManifest;
-use crate::platform::scalars::ModelRepository;
+use crate::platform::scalars::{ModelRepository, V1};
+use crate::platform::signature::{
+    DocumentSignature, HexBytes, HybridSignature, ML_DSA_65_PUBLIC_LEN, ML_DSA_65_SIGNATURE_LEN,
+    SignedKind,
+};
+use ed25519_dalek::Signer as _;
+use ml_dsa::MlDsa65;
+use ml_dsa::signature::{Keypair as _, MultipartSigner as _};
 
-/// Accepts what [`sign`] produced for one of its signers.
-pub(crate) struct TestVerifier(pub(crate) Vec<SignerId>);
-
-fn tag(digest: &Sha256Digest) -> Sha256Digest {
-    sha256(&[b"test-release-signature".as_slice(), digest.as_bytes()].concat())
+/// A signer from two 32-byte seeds.
+pub(crate) struct TestSigner {
+    ed25519: ed25519_dalek::SigningKey,
+    ml_dsa_65: ml_dsa::SigningKey<MlDsa65>,
+    principal: RegistryPrincipal,
 }
 
-/// `signer` "signs" `digest`.
-pub(crate) fn sign(signer: &SignerId, digest: &Sha256Digest) -> Vec<u8> {
-    [signer.as_bytes().as_slice(), tag(digest).as_bytes()].concat()
-}
+impl TestSigner {
+    pub(crate) fn from_seed(seed: u8) -> Self {
+        let ed25519 = ed25519_dalek::SigningKey::from_bytes(&[seed; 32]);
+        let ml_dsa_65 = ml_dsa::SigningKey::<MlDsa65>::from_seed(&ml_dsa::B32::from(
+            [seed.wrapping_add(1); 32],
+        ));
+        let mut ml_public = [0u8; ML_DSA_65_PUBLIC_LEN];
+        ml_public.copy_from_slice(ml_dsa_65.verifying_key().encode().as_slice());
+        let signing = SigningKeys {
+            ed25519: HexBytes::new(ed25519.verifying_key().to_bytes()),
+            ml_dsa_65: HexBytes::new(ml_public),
+        };
+        let principal = RegistryPrincipal {
+            node_id: signing.node_id(),
+            signing,
+        };
+        Self {
+            ed25519,
+            ml_dsa_65,
+            principal,
+        }
+    }
 
-impl SignatureVerifier for TestVerifier {
-    fn verify(&self, manifest: &Sha256Digest, signature: &[u8]) -> Result<SignerId, String> {
-        let (who, tagged) = signature.split_at_checked(32).ok_or("short signature")?;
-        let who = SignerId::from_bytes(who.try_into().map_err(|_| "short signature")?)?;
-        if !self.0.contains(&who) {
-            return Err(format!("{who} is not a trusted signer"));
+    pub(crate) fn id(&self) -> SignerId {
+        self.principal.node_id
+    }
+
+    pub(crate) fn principal(&self) -> RegistryPrincipal {
+        self.principal.clone()
+    }
+
+    /// Trust exactly this signer.
+    pub(crate) fn anchor(&self) -> RegistryPrincipals {
+        RegistryPrincipals::new(&[self.principal()]).expect("a valid principal")
+    }
+
+    /// Sign `document` as a `kind`.
+    pub(crate) fn sign(&self, kind: SignedKind, document: &Sha256Digest) -> DocumentSignature {
+        let signed = signed_string(kind, document);
+        let mut ml = [0u8; ML_DSA_65_SIGNATURE_LEN];
+        ml.copy_from_slice(
+            self.ml_dsa_65
+                .multipart_sign(&[signed.as_slice()])
+                .encode()
+                .as_slice(),
+        );
+        DocumentSignature {
+            version: V1,
+            kind,
+            document: *document,
+            signer: self.id(),
+            signature: HybridSignature {
+                ed25519: HexBytes::new(self.ed25519.sign(&signed).to_bytes()),
+                ml_dsa_65: HexBytes::new(ml),
+            },
         }
-        if tagged != tag(manifest).as_bytes() {
-            return Err("the signature is not over this manifest".into());
-        }
-        Ok(who)
     }
 }
 
-pub(crate) fn signer() -> SignerId {
-    SignerId::from_bytes([7; 32]).expect("any bytes")
+/// The signer every release test trusts.
+pub(crate) fn signer() -> TestSigner {
+    TestSigner::from_seed(7)
 }
 
-fn fixture<T: serde::de::DeserializeOwned>(rel: &str) -> T {
+pub(crate) fn fixture<T: serde::de::DeserializeOwned>(rel: &str) -> T {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../schemas/platform/v1/fixtures")
+        .join("../../schemas/platform/v1")
         .join(rel);
     serde_json::from_slice(&std::fs::read(path).expect("the vendored fixture")).expect("valid")
 }
 
 /// The bundle's valid `gpt-oss-20b` recipe, as a release ships it.
 pub(crate) fn recipe() -> ModelRecipe {
-    fixture("model-recipe/valid/gpt-oss-20b-mxfp4.json")
+    fixture("fixtures/model-recipe/valid/gpt-oss-20b-mxfp4.json")
 }
 
 /// The bundle's valid release manifest, bound to [`recipe`]. The bundle's
@@ -62,7 +110,7 @@ pub(crate) fn recipe() -> ModelRecipe {
 /// are; this sets the manifest's recipe and weights digests to the recipe's.
 pub(crate) fn manifest() -> ReleaseManifest {
     bind(
-        fixture("release-manifest/valid/gpt-oss-20b-gb10.json"),
+        fixture("fixtures/release-manifest/valid/gpt-oss-20b-gb10.json"),
         &recipe(),
     )
 }
@@ -87,12 +135,13 @@ pub(crate) fn verified_serving(model: &str) -> VerifiedRelease {
     m.model.source.repository = r.model.source.repository.clone();
     let d = digest(&m).expect("integers");
     let fp = qualified_fingerprint();
+    let s = signer();
     verify(
         &m,
         &r,
         &d,
-        &sign(&signer(), &d),
-        &TestVerifier(vec![signer()]),
+        &s.sign(SignedKind::ReleaseManifest, &d),
+        &s.anchor(),
         &Revoked::default(),
         ThisMachine {
             accelerator: "NVIDIA GB10",
