@@ -65,7 +65,8 @@ fn a_new_binary_at_the_same_path_is_installed_again() {
 #[test]
 fn the_same_unit_with_a_stopped_agent_is_activated_again() {
     let fs = installed_with(&agent());
-    let runner = Recorder::failing("sleep 2");
+    let verify = plan(this_kind(), &agent(), &home(), 1000).verify.join(" ");
+    let runner = Recorder::failing(&verify);
     let done = install(&fs, &runner, &agent(), &home(), 1000).expect("installs");
     assert!(done.changed);
     assert!(!done.running);
@@ -87,22 +88,33 @@ fn every_unit_carries_the_binary_digest() {
     }
 }
 
-const MANAGED: &str = r#"{"version": 1, "port": 34333, "mode": "node",
-    "discovery": false, "browser": false, "config_dir": "/var/lib/metralectl"}"#;
+/// An absolute state directory on this host's path syntax.
+#[cfg(windows)]
+const STATE_DIR: &str = r"C:\ProgramData\metralectl";
+#[cfg(not(windows))]
+const STATE_DIR: &str = "/var/lib/metralectl";
+
+fn managed() -> String {
+    serde_json::json!({"version": 1, "port": 34333, "mode": "node",
+        "discovery": false, "browser": false, "config_dir": STATE_DIR})
+    .to_string()
+}
 
 /// A managed node's file installs an agent with no inbound listener.
 #[test]
 fn a_managed_configuration_installs_an_agent_with_no_inbound_listener() {
-    let c = InstallConfig::parse(MANAGED).expect("valid");
+    let c = InstallConfig::parse(&managed()).expect("valid");
     assert_eq!(c.mode, Mode::Node);
     let a = c.invocation(&PathBuf::from("/usr/local/bin/metralectl"), "ef", false);
     let argv = a.argv().join(" ");
     assert_eq!(
         argv,
-        "/usr/local/bin/metralectl --config-dir /var/lib/metralectl agent run --port 34333 \
-         --no-discovery --no-browser"
+        format!(
+            "/usr/local/bin/metralectl --config-dir {STATE_DIR} agent run --port 34333 \
+             --no-discovery --no-browser"
+        )
     );
-    let client = MANAGED.replace("\"node\"", "\"client\"");
+    let client = managed().replace("\"node\"", "\"client\"");
     let c = InstallConfig::parse(&client).expect("valid");
     assert!(c.invocation(&PathBuf::from("/m"), "ef", false).client);
 }
@@ -112,7 +124,7 @@ fn a_managed_configuration_installs_an_agent_with_no_inbound_listener() {
 /// lets a file without it install today's default.
 #[test]
 fn a_configuration_missing_unknown_or_wrong_is_refused() {
-    let full: serde_json::Value = serde_json::from_str(MANAGED).expect("json");
+    let full: serde_json::Value = serde_json::from_str(&managed()).expect("json");
     for key in [
         "version",
         "port",
