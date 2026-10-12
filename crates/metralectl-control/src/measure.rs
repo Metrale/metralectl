@@ -13,8 +13,9 @@
 //! histograms, the startup phase, the build info, and (at a device telemetry
 //! level) the GPU energy counter.
 
-use metralectl_core::hardware::capture::{MemInfo, NvidiaSample, memory_is_unified};
+use metralectl_core::hardware::capture::{MemInfo, memory_is_unified};
 use metralectl_core::metrics::{self, Scrape};
+use metralectl_core::telemetry::nvidia::NvidiaSample;
 use metralectl_protocol::msg::LaunchReading;
 use metralectl_protocol::telemetry::{DeviceStats, LaunchPhase, TelemetryCaps};
 

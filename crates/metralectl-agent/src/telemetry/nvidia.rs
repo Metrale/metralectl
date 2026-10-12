@@ -13,7 +13,7 @@
 //! so there is no framebuffer to report — the pool is the host's, and it comes
 //! from `/proc/meminfo` instead.
 
-pub use metralectl_core::hardware::capture::{
+pub use metralectl_core::telemetry::nvidia::{
     NVIDIA_SAMPLE_QUERY as QUERY, NvidiaSample as Reading, nvidia_sample_argv as argv,
     parse_nvidia_sample as parse,
 };
@@ -101,8 +101,8 @@ fn run(args: &[&str]) -> Option<String> {
 }
 
 /// The first GPU's identity, as far as `nvidia-smi` answered it.
-pub fn identity() -> Option<metralectl_core::hardware::capture::NvidiaGpu> {
-    use metralectl_core::hardware::capture::{nvidia_identity_argv, parse_nvidia_identity};
+pub fn identity() -> Option<metralectl_core::telemetry::nvidia::NvidiaGpu> {
+    use metralectl_core::telemetry::nvidia::{nvidia_identity_argv, parse_nvidia_identity};
     let argv = nvidia_identity_argv();
     let args: Vec<&str> = argv[1..].iter().map(String::as_str).collect();
     parse_nvidia_identity(&run(&args)?).into_iter().next()
@@ -112,7 +112,7 @@ pub fn identity() -> Option<metralectl_core::hardware::capture::NvidiaGpu> {
 pub fn cuda_version() -> Option<String> {
     run(&[])
         .as_deref()
-        .and_then(metralectl_core::hardware::capture::parse_cuda_version)
+        .and_then(metralectl_core::telemetry::nvidia::parse_cuda_version)
 }
 
 /// `clocks.max.sm` of the first GPU, MHz.

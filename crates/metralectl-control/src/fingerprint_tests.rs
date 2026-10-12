@@ -145,7 +145,7 @@ fn the_tools_are_read_through_the_ports() {
     assert_eq!(
         runner.calls(),
         vec![
-            capture::nvidia_identity_argv(),
+            nvidia::nvidia_identity_argv(),
             vec!["nvidia-smi".to_owned()],
             vec!["lscpu".to_owned()],
             vec!["uname".to_owned(), "-r".to_owned()],

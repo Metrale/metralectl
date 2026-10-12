@@ -83,7 +83,7 @@ fn repo_info(host: &BenchHost) -> RepoInfo {
 /// [`metralectl_core::hardware::capture::memory_is_unified`] decides it: no
 /// framebuffer of its own beside readable host memory.
 fn gpu_info(
-    identity: metralectl_core::hardware::capture::NvidiaGpu,
+    identity: metralectl_core::telemetry::nvidia::NvidiaGpu,
     cuda_version: Option<String>,
     vitals: Option<&metralectl_protocol::fleet::NodeVitals>,
     host_memory_known: bool,
@@ -228,7 +228,7 @@ pub fn disabled(
 #[cfg(test)]
 mod gpu_info_tests {
     use super::*;
-    use metralectl_core::hardware::capture::NvidiaGpu;
+    use metralectl_core::telemetry::nvidia::NvidiaGpu;
 
     fn gpu(framebuffer: Option<u64>) -> NvidiaGpu {
         NvidiaGpu {

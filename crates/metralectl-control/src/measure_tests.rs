@@ -4,7 +4,7 @@
 //! over device samples.
 
 use super::*;
-use metralectl_core::hardware::capture::parse_nvidia_sample;
+use metralectl_core::telemetry::nvidia::parse_nvidia_sample;
 
 /// The series `docs/qci/runtime-telemetry.md` adds, rendered as the runtime's
 /// exporter writes them, beside the long-standing counters.

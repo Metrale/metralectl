@@ -4,7 +4,8 @@
 //!
 //! [`ToolOutputs::read`] runs the tools (the only I/O here); [`capture`] reads
 //! what they printed through the shared parsers in
-//! `metralectl_core::hardware::capture` and classifies the accelerator with
+//! `metralectl_core::hardware::capture` and `metralectl_core::telemetry::nvidia`
+//! and classifies the accelerator with
 //! `metralectl_core::hardware::classify`, the same classification the launch
 //! gate and the reconciler use. Every quantity a tool did not answer is
 //! written absent (`unavailable`), never zero or a guess (DECISIONS PC-V), so
@@ -19,19 +20,19 @@
 use crate::platform::field::{AbsentReason, Field};
 use crate::platform::fingerprint::{Accelerator, CpuArch, HardwareFingerprint, Host, Vendor};
 use crate::platform::scalars::{SoftwareVersion, Text, V1};
-use metralectl_core::hardware::capture::{
-    self, NvidiaGpu, memory_is_unified, parse_cuda_version, parse_lscpu_model, parse_meminfo,
-    parse_nvidia_identity, sm_architecture,
-};
+use metralectl_core::hardware::capture::{memory_is_unified, parse_lscpu_model, parse_meminfo};
 use metralectl_core::hardware::{HardwareClass, classify};
 use metralectl_core::io::{FileSystem, ProcessRunner};
+use metralectl_core::telemetry::nvidia::{
+    self, NvidiaGpu, parse_cuda_version, parse_nvidia_identity, sm_architecture,
+};
 use std::num::{NonZeroU32, NonZeroU64};
 use std::path::Path;
 
 /// What the machine's tools printed; `None` for a tool that did not answer.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ToolOutputs {
-    /// `nvidia-smi` identity query (`capture::nvidia_identity_argv`).
+    /// `nvidia-smi` identity query (`nvidia::nvidia_identity_argv`).
     pub nvidia_identity: Option<String>,
     /// `nvidia-smi` with no arguments: the banner naming the CUDA version.
     pub nvidia_banner: Option<String>,
@@ -58,8 +59,8 @@ impl ToolOutputs {
         };
         let words = |w: &[&str]| w.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
         Self {
-            nvidia_identity: run(capture::nvidia_identity_argv()),
-            nvidia_banner: run(words(&["nvidia-smi"])),
+            nvidia_identity: run(nvidia::nvidia_identity_argv()),
+            nvidia_banner: run(nvidia::banner_argv()),
             meminfo: fs.read_to_string(Path::new("/proc/meminfo")).ok(),
             lscpu: run(words(&["lscpu"])),
             os_kernel: run(words(&["uname", "-r"])),
