@@ -7,6 +7,7 @@
 pub mod chain;
 pub mod docker;
 pub mod flags;
+pub mod hardware;
 pub mod hfcache;
 pub mod host;
 pub mod io;
@@ -18,6 +19,7 @@ pub mod registry;
 pub mod scalar;
 pub mod secretfile;
 pub mod settings;
+pub mod telemetry;
 
 pub use docker::{DockerCommand, LaunchProfile};
 pub use recipe::{NotLaunchable, Provenance, Recipe, RecipeError, RuntimeKind, Topology};

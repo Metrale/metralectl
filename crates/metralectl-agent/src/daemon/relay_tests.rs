@@ -117,11 +117,9 @@ async fn a_vouched_launch_rides_the_relay_end_to_end() {
         .expect("routable");
     assert!(matches!(rep, ControlRep::Stopped { .. }));
     assert!(
-        target
-            .launcher
-            .calls()
-            .iter()
-            .any(|c| matches!(c, crate::launcher::Call::Stop(r) if r == recipe().as_str())),
+        target.launcher.calls().iter().any(
+            |c| matches!(c, metralectl_control::launcher::Call::Stop(r) if r == recipe().as_str())
+        ),
         "the stop resolved a recipe, never a container"
     );
 }
@@ -173,7 +171,9 @@ async fn a_fabricated_vouch_writes_no_pin_and_is_refused_at_the_relay() {
     match rep {
         ControlRep::Refused {
             by,
-            error: AgentError::RelayRefused { node, via, detail },
+            error: AgentError::RelayRefused {
+                node, via, detail, ..
+            },
         } => {
             assert_eq!(by, relay.id(), "the honest relay refuses under R3");
             assert_eq!(node, phantom);
@@ -361,6 +361,14 @@ async fn the_relay_emits_only_a_terminal_frame_at_the_target() {
             matches!(f, crate::peer::wire::PeerFrame::Control { .. }),
             "the ONLY control frame a relay may emit is the terminal one: {f:?}"
         );
+        // #49: the relay forwards the origin's attempt and trace unchanged.
+        assert!(
+            matches!(
+                f,
+                crate::peer::wire::PeerFrame::Control { trace: Some(_), .. }
+            ),
+            "the forwarded frame must carry the origin's trace: {f:?}"
+        );
     }
 }
 
@@ -407,7 +415,9 @@ async fn a_relay_the_origin_cannot_dial_is_named_in_the_refusal() {
         .await
         .expect_err("nothing is listening; the dial cannot succeed");
     match err {
-        AgentError::RelayRefused { node, via, detail } => {
+        AgentError::RelayRefused {
+            node, via, detail, ..
+        } => {
             assert_eq!(node, ghost.id(), "`node` stays the target");
             assert_eq!(
                 via,

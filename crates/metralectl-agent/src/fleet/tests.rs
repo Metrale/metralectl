@@ -407,6 +407,8 @@ fn an_unanswerable_device_field_becomes_unsupported_not_zero() {
     assert_eq!(v.memory_used_frac, Metric::Unsupported);
     assert_eq!(v.disk_free_bytes, Metric::Unsupported);
     assert_ne!(v.memory_total_bytes, Metric::reading(0.0));
+    // What the agent did measure, it states.
+    assert_eq!((v.docker_ok, v.agent_uptime_s), (Some(true), Some(10)));
 }
 
 #[test]

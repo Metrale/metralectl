@@ -8,7 +8,7 @@
 //! those reach another machine over the authenticated peer channel. Keeping
 //! them apart is what keeps each surface small enough to read in one sitting.
 //!
-//! Every verb here delegates to [`crate::control::LocalControl`] — the same
+//! Every verb here delegates to [`metralectl_control::control::LocalControl`] — the same
 //! core the peer channel's terminal `Control` handler executes through — and
 //! keeps for itself only what is session-shaped: the correlation `id`, the
 //! `ServerMsg` envelope, and the denied-attempt log.
@@ -50,7 +50,17 @@ impl Session<'_> {
         recipe_id: &RecipeId,
         requested: &BTreeMap<String, SettingValue>,
     ) -> Vec<ServerMsg> {
-        match self.control().launch(recipe_id, requested).await {
+        // A browser launch is outside any deployment.
+        let launch_for = metralectl_control::launcher::LaunchFor {
+            owner: None,
+            release: None,
+            trace: None,
+        };
+        match self
+            .control()
+            .launch(recipe_id, requested, launch_for)
+            .await
+        {
             Ok(started) => vec![ServerMsg::Started {
                 id,
                 recipe: recipe_id.clone(),

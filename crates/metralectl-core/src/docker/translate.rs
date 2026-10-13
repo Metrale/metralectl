@@ -21,6 +21,15 @@ pub const DEFAULT_MASTER_PORT: u16 = 29500;
 pub const LABEL_MANAGED: &str = "io.metralectl.managed";
 /// Label recording which recipe produced a container.
 pub const LABEL_RECIPE: &str = "io.metralectl.recipe";
+/// Label recording which deployment a container was launched for. Absent on a
+/// launch outside any deployment (a browser, the command line).
+pub const LABEL_DEPLOYMENT: &str = "io.metralectl.deployment";
+/// Label recording which generation of its deployment a container realises.
+pub const LABEL_GENERATION: &str = "io.metralectl.generation";
+/// Label recording the control attempt that started a container.
+pub const LABEL_ATTEMPT: &str = "io.metralectl.attempt";
+/// Label recording the trace the starting request belonged to.
+pub const LABEL_TRACE: &str = "io.metralectl.trace";
 
 /// Which node of a launch this command is for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -268,7 +277,10 @@ fn check_node_count(recipe: &Recipe, placement: &Placement) -> Result<(), Transl
 }
 
 /// Deterministic container name, unique per rank.
-fn container_name(recipe: &str, placement: &Placement) -> String {
+///
+/// Public because a launcher deciding whether a recipe is already running
+/// must look for the name this rendered, not a copy of the rule.
+pub fn container_name(recipe: &str, placement: &Placement) -> String {
     match placement {
         Placement::Solo => format!("metrale-{recipe}"),
         Placement::Rank { rank, .. } => format!("metrale-{recipe}-rank{rank}"),

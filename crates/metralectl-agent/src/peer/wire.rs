@@ -17,7 +17,9 @@
 use crate::cluster::{PrepareReply, RankAssignment};
 use anyhow::{Context, Result, bail};
 use metralectl_protocol::fleet::{NodeId, VouchedPeer};
-use metralectl_protocol::msg::{BenchEvent, BenchRep, BenchReq, ControlRep, ControlReq};
+use metralectl_protocol::msg::{
+    BenchEvent, BenchRep, BenchReq, ControlRep, ControlReq, ControlTrace,
+};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -229,6 +231,11 @@ pub enum PeerFrame {
         node: NodeId,
         /// What to ask of it.
         req: ControlReq,
+        /// The attempt and trace the request belongs to, when the origin
+        /// sent them. Optional and omitted when absent, so frames to and from
+        /// a build without it are unchanged.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        trace: Option<ControlTrace>,
     },
 
     /// TERMINAL control frame: execute `req` HERE.
@@ -243,6 +250,11 @@ pub enum PeerFrame {
     Control {
         /// What to execute, here.
         req: ControlReq,
+        /// The attempt and trace the request belongs to, when the origin
+        /// sent them. Optional and omitted when absent, so frames to and from
+        /// a build without it are unchanged.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        trace: Option<ControlTrace>,
     },
 
     /// The answer to `Control` or `ControlTo`. A relay copies the target's
@@ -250,6 +262,10 @@ pub enum PeerFrame {
     ControlReply {
         /// The answer.
         rep: ControlRep,
+        /// The request's attempt and trace, echoed so the origin can tell
+        /// which request this answers.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        trace: Option<ControlTrace>,
     },
 
     /// A benchmark-job request, executed HERE. Honored only from a sender

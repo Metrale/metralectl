@@ -19,6 +19,9 @@ async fn ready_with_window<'a>(f: &'a Fixture, w: &'a crate::joining::JoinWindow
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: Ok(()),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: None,
         cluster: None,
         telemetry: None,
@@ -109,6 +112,9 @@ async fn minting_before_the_handshake_is_refused() {
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: Ok(()),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: None,
         cluster: None,
         telemetry: None,

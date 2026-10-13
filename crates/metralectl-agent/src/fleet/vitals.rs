@@ -56,8 +56,8 @@ pub fn vitals_from_device(
         )]
         memory_total_bytes: d.memory_total_bytes.map(|b| b as f64).into(),
         disk_free_bytes: disk_free_bytes.into(),
-        docker_ok,
-        agent_uptime_s: uptime_s,
+        docker_ok: Some(docker_ok),
+        agent_uptime_s: Some(uptime_s),
     }
 }
 

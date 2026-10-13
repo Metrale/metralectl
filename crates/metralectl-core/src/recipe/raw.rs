@@ -66,7 +66,10 @@ pub struct RawRecipe {
     #[serde(default)]
     pub command: Option<String>,
     #[serde(default)]
-    pub metadata: BTreeMap<String, serde_yaml_ng::Value>,
+    pub metadata: BTreeMap<String, serde_norway::Value>,
+    /// What the recipe needs of the machine; absent declares nothing.
+    #[serde(default)]
+    pub requires: Option<crate::hardware::HardwareRequirement>,
 
     /// Everything the schema does not name.
     ///
@@ -74,7 +77,7 @@ pub struct RawRecipe {
     /// runtime config, where they could silently influence a launch. Here they
     /// are collected only so they can be *reported*; they never reach a command.
     #[serde(flatten)]
-    pub extra: BTreeMap<String, serde_yaml_ng::Value>,
+    pub extra: BTreeMap<String, serde_norway::Value>,
 }
 
 impl RawRecipe {

@@ -47,7 +47,7 @@ pub fn add(args: &RegistryAddArgs) -> Result<()> {
     let (mut store, path) = store()?;
     let dest = hostinfo::cache_dir()?.join("registries").join(&args.name);
 
-    let registry: RemoteRegistry = serde_yaml_ng::from_str(&format!(
+    let registry: RemoteRegistry = serde_norway::from_str(&format!(
         "name: {}\nurl: {}\nsubpath: {}\npath: {}\n",
         args.name,
         args.url,

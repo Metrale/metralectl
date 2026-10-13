@@ -11,11 +11,12 @@ authors.workspace = true
 
 [dependencies]
 metralectl-core.workspace = true
+metralectl-control.workspace = true
 metralectl-protocol.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json = "1"
-serde_yaml_ng.workspace = true
+serde_norway.workspace = true
 base64 = "0.22"
 axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "process", "fs", "io-util", "time"] }
@@ -36,9 +37,12 @@ rustls-pki-types = "1.15.1"
 [dev-dependencies]
 # The recording mocks are feature-gated so they never ship in a release build.
 metralectl-core = { workspace = true, features = ["test-mocks"] }
+metralectl-control = { workspace = true, features = ["test-mocks"] }
 
 [features]
-test-mocks = []
+# The recording launcher now lives in metralectl-control; this keeps the
+# feature name working for anyone who enabled it here.
+test-mocks = ["metralectl-control/test-mocks"]
 
 [lints]
 workspace = true

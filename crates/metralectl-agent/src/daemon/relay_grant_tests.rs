@@ -5,8 +5,8 @@
 //! `relay_tests.rs`).
 
 use super::relay_harness::*;
-use crate::launcher::Launcher;
 use crate::session::ControlRelay as _;
+use metralectl_control::launcher::Launcher;
 use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -248,33 +248,48 @@ async fn a_slow_target_times_out_at_the_relay_not_at_the_origin() {
 }
 
 /// A launcher whose first launch outlives the relay budget but SUCCEEDS, and
-/// whose second is already running — the lost-reply recovery story.
-struct SlowThenBusy {
-    launches: AtomicUsize,
+/// which keeps the launcher contract: a repeated launch of the running recipe
+/// returns it instead of starting another. `gate` stands for
+/// `DockerLauncher`'s per-recipe gate — a second launch waits behind the
+/// first — while `running`, like `docker ps`, answers without waiting.
+struct SlowFirstLaunch {
+    starts: AtomicUsize,
     delay: Duration,
+    gate: std::sync::Mutex<()>,
+    running: std::sync::atomic::AtomicBool,
 }
 
-impl Launcher for SlowThenBusy {
+impl Launcher for SlowFirstLaunch {
     fn preview(
         &self,
         _: &metralectl_core::Recipe,
         _: &BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Preview, AgentError> {
+    ) -> Result<metralectl_control::launcher::Preview, AgentError> {
         Err(AgentError::NotReady)
     }
     fn launch(
         &self,
         _: &metralectl_core::Recipe,
         _: &BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Started, AgentError> {
-        if self.launches.fetch_add(1, Ordering::SeqCst) > 0 {
-            return Err(AgentError::AlreadyRunning { recipe: recipe() });
+        _: &metralectl_control::launcher::LaunchFor,
+    ) -> Result<metralectl_control::launcher::Started, AgentError> {
+        let _held = self.gate.lock().expect("gate");
+        if !self.running.load(Ordering::SeqCst) {
+            self.starts.fetch_add(1, Ordering::SeqCst);
+            std::thread::sleep(self.delay);
+            self.running.store(true, Ordering::SeqCst);
         }
-        std::thread::sleep(self.delay);
-        Ok(crate::launcher::Started {
+        Ok(metralectl_control::launcher::Started {
             container: "metrale-slow".to_owned(),
             endpoint: None,
         })
+    }
+    fn fetch_image(
+        &self,
+        _: &metralectl_control::platform::scalars::OciImage,
+    ) -> Result<(), String> {
+        // Not reached: nothing here launches a release.
+        Err("not reached".to_owned())
     }
     fn stop(&self, _: &str) -> Result<(), AgentError> {
         Ok(())
@@ -282,22 +297,27 @@ impl Launcher for SlowThenBusy {
     fn running(&self) -> Result<Vec<metralectl_protocol::msg::RunningLaunch>, AgentError> {
         Ok(Vec::new())
     }
+    fn workloads(&self) -> Result<Vec<metralectl_control::launcher::Workload>, AgentError> {
+        // Not reached: nothing here reconciles a deployment.
+        Err(AgentError::NotReady)
+    }
 }
 
-/// The no-idempotency-token design, proven: a launch whose reply was lost to
-/// the relay's timeout has still HAPPENED, and the retry answers
-/// `AlreadyRunning` from the launcher's own state instead of starting a
-/// second copy.
+/// The no-idempotency-token design, proven over the real channel: a launch
+/// whose reply was lost to the relay's timeout has still HAPPENED, the relay
+/// says its leg was LOST (so the origin may retry) rather than refused, and
+/// the retry is answered with that launch from the launcher's own state
+/// instead of a second copy.
 ///
-/// `worker_threads` is pinned rather than left to the machine. `SlowThenBusy`
-/// blocks its worker with `thread::sleep`, and `multi_thread` sizes the pool
-/// from the CPU count — so on a two-core runner the blocked launch can starve
-/// the relay's own timeout timer, which then never fires and the relay returns
-/// `Started` for a launch it was supposed to give up on. Observed exactly that
-/// on Windows CI. Four workers is enough that a single blocking launch cannot
-/// take the runtime with it, and the test still measures what it says.
+/// `worker_threads` is pinned rather than left to the machine. The slow
+/// launch blocks its worker with `thread::sleep`, and `multi_thread` sizes
+/// the pool from the CPU count — so on a two-core runner the blocked launch
+/// can starve the relay's own timeout timer, which then never fires and the
+/// relay returns `Started` for a launch it was supposed to give up on.
+/// Observed exactly that on Windows CI. Four workers is enough that a single
+/// blocking launch cannot take the runtime with it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_retried_launch_after_a_lost_reply_is_already_running_not_doubled() {
+async fn a_retried_launch_after_a_lost_reply_returns_the_first_not_a_second() {
     let origin = agent("retry-origin", "macbook", "127.0.0.1");
     let mut relay = agent("retry-relay", "dgx1", "127.0.0.2");
     let mut target = agent("retry-target", "dgx2", "127.0.0.3");
@@ -308,15 +328,15 @@ async fn a_retried_launch_after_a_lost_reply_is_already_running_not_doubled() {
 
     // The margin between these two is the whole test: the relay must give up
     // BEFORE the launch returns, or the reply is not lost and there is nothing
-    // to recover from. It used to be 3x (300ms vs 900ms), and a loaded Windows
-    // runner lost that race -- the launch answered `Started`, the assertion for
-    // the relay's refusal failed, and a pull request that had not touched any
-    // Rust went red. 20x is not a tuned number; it is far enough outside any
-    // plausible scheduling delay that the ordering stops being a coin flip.
+    // to recover from. 20x is far enough outside any plausible scheduling
+    // delay that the ordering is not a coin flip (3x lost that race on a
+    // loaded Windows runner).
     let relay_budget = Duration::from_millis(150);
-    let launcher = Arc::new(SlowThenBusy {
-        launches: AtomicUsize::new(0),
+    let launcher = Arc::new(SlowFirstLaunch {
+        starts: AtomicUsize::new(0),
         delay: relay_budget * 20,
+        gate: std::sync::Mutex::new(()),
+        running: std::sync::atomic::AtomicBool::new(false),
     });
     let port = {
         let launcher = std::sync::Arc::clone(&relay.launcher);
@@ -327,7 +347,7 @@ async fn a_retried_launch_after_a_lost_reply_is_already_running_not_doubled() {
         &mut target,
         port,
         Duration::from_secs(5),
-        Arc::clone(&launcher) as Arc<dyn crate::launcher::Launcher>,
+        Arc::clone(&launcher) as Arc<dyn metralectl_control::launcher::Launcher>,
     )
     .await;
     poll(&relay, &target).await;
@@ -346,27 +366,29 @@ async fn a_retried_launch_after_a_lost_reply_is_already_running_not_doubled() {
         matches!(
             rep,
             ControlRep::Refused {
-                error: AgentError::RelayRefused { .. },
+                error: AgentError::RelayRefused {
+                    transient: true,
+                    ..
+                },
                 ..
             }
         ),
-        "the first attempt's reply is lost to the relay's budget: {rep:?}"
+        "the first reply is lost to the relay's budget, and said to be lost: {rep:?}"
     );
 
     // Let the slow launch actually finish before retrying.
-    tokio::time::sleep(relay_budget * 4).await;
+    tokio::time::sleep(relay_budget * 24).await;
     let (rep, _) = d.control(target.id(), launch).await.expect("answers");
     match rep {
-        ControlRep::Refused {
-            by,
-            error: AgentError::AlreadyRunning { .. },
-        } => assert_eq!(by, target.id(), "the launcher's state is the SSOT"),
-        other => panic!("expected AlreadyRunning, got {other:?}"),
+        ControlRep::Started { container, .. } => {
+            assert_eq!(container, "metrale-slow", "the FIRST launch, returned");
+        }
+        other => panic!("expected the running launch back, got {other:?}"),
     }
     assert_eq!(
-        launcher.launches.load(Ordering::SeqCst),
-        2,
-        "two attempts, ONE actual launch: the second was refused by state"
+        launcher.starts.load(Ordering::SeqCst),
+        1,
+        "two requests, ONE actual start: the launcher's state is the SSOT"
     );
 }
 

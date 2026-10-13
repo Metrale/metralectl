@@ -75,6 +75,42 @@ fn repo_info(host: &BenchHost) -> RepoInfo {
     }
 }
 
+/// The accelerator as the bench report states it, from its identity query,
+/// the CUDA banner and the vitals. Pure.
+///
+/// `None` when the identity query did not name the part, its driver and its
+/// count, which the report requires. Unified memory is measured, as
+/// [`metralectl_core::hardware::capture::memory_is_unified`] decides it: no
+/// framebuffer of its own beside readable host memory.
+fn gpu_info(
+    identity: metralectl_core::telemetry::nvidia::NvidiaGpu,
+    cuda_version: Option<String>,
+    vitals: Option<&metralectl_protocol::fleet::NodeVitals>,
+    host_memory_known: bool,
+) -> Option<GpuInfo> {
+    let unified = metralectl_core::hardware::capture::memory_is_unified(
+        true,
+        identity.memory_total_bytes,
+        host_memory_known,
+    );
+    let of = |f: fn(&metralectl_protocol::fleet::NodeVitals) -> Metric| {
+        vitals.map_or(Metric::Unsupported, f)
+    };
+    Some(GpuInfo {
+        name: identity.name?,
+        count: identity.count?,
+        driver_version: identity.driver?,
+        // The wire keeps its documented "empty when unknown" form.
+        cuda_version: cuda_version.unwrap_or_default(),
+        sm_clock_mhz: of(|v| v.sm_clock_mhz),
+        sm_clock_healthy_mhz: vitals.and_then(|v| v.sm_clock_healthy_mhz),
+        temperature_c: of(|v| v.temperature_c),
+        memory_total_bytes: of(|v| v.memory_total_bytes),
+        memory_used_frac: of(|v| v.memory_used_frac),
+        memory_is_unified: unified,
+    })
+}
+
 /// Assemble the report.
 pub fn node_info(host: &BenchHost) -> BenchNodeInfo {
     let local = crate::fleet::FleetView::nodes(host.fleet.as_ref())
@@ -86,25 +122,13 @@ pub fn node_info(host: &BenchHost) -> BenchNodeInfo {
         .as_ref()
         .map(|n| n.name.clone())
         .unwrap_or_else(|| metralectl_protocol::fleet::DisplayName::new("unknown"));
-    let gpu = crate::telemetry::nvidia::identity().map(|(gname, driver, count)| GpuInfo {
-        name: gname,
-        count,
-        driver_version: driver,
-        cuda_version: crate::telemetry::nvidia::cuda_version(),
-        sm_clock_mhz: vitals
-            .as_ref()
-            .map_or(Metric::Unsupported, |v| v.sm_clock_mhz),
-        sm_clock_healthy_mhz: vitals.as_ref().and_then(|v| v.sm_clock_healthy_mhz),
-        temperature_c: vitals
-            .as_ref()
-            .map_or(Metric::Unsupported, |v| v.temperature_c),
-        memory_total_bytes: vitals
-            .as_ref()
-            .map_or(Metric::Unsupported, |v| v.memory_total_bytes),
-        memory_used_frac: vitals
-            .as_ref()
-            .map_or(Metric::Unsupported, |v| v.memory_used_frac),
-        memory_is_unified: true,
+    let gpu = crate::telemetry::nvidia::identity().and_then(|identity| {
+        gpu_info(
+            identity,
+            crate::telemetry::nvidia::cuda_version(),
+            vitals.as_ref(),
+            crate::telemetry::meminfo::read().total_bytes.is_some(),
+        )
     });
     let readings = super::exclusive::probe(
         &host.cfg.cache_dir,
@@ -198,5 +222,45 @@ pub fn disabled(
         min_free_fraction: 0.0,
         host_free_fraction: Metric::Unsupported,
         max_run_s: 0,
+    }
+}
+
+#[cfg(test)]
+mod gpu_info_tests {
+    use super::*;
+    use metralectl_core::telemetry::nvidia::NvidiaGpu;
+
+    fn gpu(framebuffer: Option<u64>) -> NvidiaGpu {
+        NvidiaGpu {
+            name: Some("NVIDIA GB10".into()),
+            driver: Some("580.126.09".into()),
+            count: Some(1),
+            compute_cap: Some((12, 1)),
+            memory_total_bytes: framebuffer,
+        }
+    }
+
+    /// The flag is measured, not written as `true`. Sabotage: the old
+    /// hard-coded `true` reports a discrete card as unified.
+    #[test]
+    fn unified_memory_is_measured_from_the_identity_and_the_host() {
+        let unified = |fb, host| gpu_info(gpu(fb), None, None, host).map(|g| g.memory_is_unified);
+        assert_eq!(unified(None, true), Some(Some(true)));
+        assert_eq!(unified(Some(80 << 30), true), Some(Some(false)));
+        assert_eq!(
+            unified(None, false),
+            Some(None),
+            "no figure for either pool"
+        );
+    }
+
+    #[test]
+    fn a_part_the_query_did_not_name_is_not_reported() {
+        let mut nameless = gpu(None);
+        nameless.name = None;
+        assert_eq!(gpu_info(nameless, None, None, true), None);
+        let g = gpu_info(gpu(None), Some("13.0".into()), None, true).expect("named");
+        assert_eq!(g.cuda_version, "13.0");
+        assert_eq!(g.sm_clock_mhz, Metric::Unsupported);
     }
 }

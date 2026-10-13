@@ -18,6 +18,25 @@ use crate::settings::SettingValue;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+crate::hex_id! {
+    /// One control attempt: 16 bytes, kept by every send of the same request,
+    /// so each leg and the container it launches can be told apart from
+    /// another request's and joined to the one that caused them.
+    pub struct AttemptId([u8; 16]); nonzero: false
+}
+
+/// What a control request belongs to: the attempt, and the W3C trace it is
+/// part of. Carried beside a request, never inside it, so the closed verb set
+/// does not grow; echoed on the answer; written on a container a launch
+/// starts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ControlTrace {
+    /// The attempt.
+    pub attempt: AttemptId,
+    /// The trace.
+    pub trace_id: crate::TraceId,
+}
+
 /// What one agent may ask another to do on the target's own hardware.
 ///
 /// Mirrors the browser's local launch surface verb for verb, so the target
@@ -135,8 +154,9 @@ pub enum ControlRep {
         recipe: RecipeId,
         /// The reading. Every field is optional: absent means the engine does
         /// not report it, or that there is not yet a second sample to
-        /// difference against — never zero.
-        stats: LaunchReading,
+        /// difference against — never zero. Boxed: it is by far the largest
+        /// answer, and the wire form is the same.
+        stats: Box<LaunchReading>,
     },
     /// The tail of a launch's log on the target.
     Logs {

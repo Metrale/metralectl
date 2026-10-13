@@ -10,13 +10,13 @@
 //! `relay_grant_tests.rs` drive the real `ControlDriver` through this.
 
 use super::peer_serve::{PeerServe, serve_peer_connection};
-use crate::control::ControlHost;
 use crate::fleet::LocalFleet;
 use crate::identity::{Identity, PinStore};
-use crate::launcher::{Launcher, RecordingLauncher};
 use crate::peer::link::{SelfIntro, query};
 use crate::peer::tls::{PinnedPeerVerifier, server_config};
 use crate::peer::wire::{PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame};
+use metralectl_control::control::ControlHost;
+use metralectl_control::launcher::{Launcher, RecordingLauncher};
 use metralectl_core::registry::RegistrySet;
 use metralectl_protocol::fleet::{
     DisplayName, Launchability, LinkClass, NodeAddress, NodeId, VouchedPeer,
@@ -154,6 +154,9 @@ pub(super) async fn spawn_serving_bench(
             None,
             Ok(()),
             "NVIDIA GB10".to_owned(),
+            Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
         )),
         peer_port: a.port,
         answer_budget,
@@ -241,13 +244,19 @@ pub(super) fn claim(node: NodeId, addresses: Vec<NodeAddress>, reachable: bool) 
     }
 }
 
-/// The production origin-side driver, on this test's runtime.
+/// The production origin-side driver, on this test's runtime, sending each
+/// request exactly once — the suites here assert what ONE send does; the
+/// retry policy has its own suite (`control::retry`).
 pub(super) fn driver(a: &TestAgent, port: u16) -> crate::peer::control::ControlDriver {
     crate::peer::control::ControlDriver::new(
         Arc::clone(&a.identity),
         a.pins.clone(),
         Arc::clone(&a.fleet),
         port,
+        metralectl_control::control::retry::RetryBudget {
+            attempts: std::num::NonZeroU32::MIN,
+            pause: Duration::ZERO,
+        },
     )
 }
 
@@ -324,6 +333,7 @@ pub(super) async fn spawn_fake_peer(
                         PeerFrame::Control { .. } => {
                             tokio::time::sleep(delay).await;
                             PeerFrame::ControlReply {
+                                trace: None,
                                 rep: ControlRep::Status {
                                     running: Vec::new(),
                                 },
@@ -333,12 +343,14 @@ pub(super) async fn spawn_fake_peer(
                         // violation itself; answer with a loud refusal so
                         // the test that hits it fails visibly.
                         PeerFrame::ControlTo { node, .. } => PeerFrame::ControlReply {
+                            trace: None,
                             rep: ControlRep::Refused {
                                 by: local,
                                 error: metralectl_protocol::msg::AgentError::RelayRefused {
                                     node,
                                     via: Some(local),
                                     detail: "a terminal peer received a forward".to_owned(),
+                                    transient: false,
                                 },
                             },
                         },

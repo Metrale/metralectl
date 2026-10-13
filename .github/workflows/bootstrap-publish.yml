@@ -66,7 +66,7 @@ jobs:
           set -eu
           # Order matters: a crate cannot be published until everything it
           # depends on is already on the registry.
-          for crate in metrale-recipes-data metralectl-protocol metralectl-core metralectl-agent metralectl; do
+          for crate in metrale-recipes-data metralectl-protocol metralectl-core metralectl-control metralectl-agent metralectl; do
             version=$(cargo metadata --no-deps --format-version 1 \
               | python3 -c "import json,sys;print(next(p['version'] for p in json.load(sys.stdin)['packages'] if p['name']=='$crate'))")
 

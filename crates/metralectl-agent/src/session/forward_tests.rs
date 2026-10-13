@@ -161,6 +161,9 @@ async fn routed_session<'a>(
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: f.can_launch.clone(),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: Some(fleet),
         cluster: None,
         telemetry: None,
@@ -200,7 +203,7 @@ fn answer_in_kind(req: &ControlReq) -> Scripted {
         },
         ControlReq::Stats { recipe } => ControlRep::Stats {
             recipe: recipe.clone(),
-            stats: metralectl_protocol::msg::LaunchReading::default(),
+            stats: Box::default(),
         },
         ControlReq::Logs { recipe, .. } => ControlRep::Logs {
             recipe: recipe.clone(),
@@ -326,7 +329,7 @@ async fn a_verb_aimed_at_this_machine_by_id_runs_locally_and_never_dials() {
         f.launcher
             .calls()
             .iter()
-            .any(|c| matches!(c, crate::launcher::Call::Running)),
+            .any(|c| matches!(c, metralectl_control::launcher::Call::Running)),
         "the local launcher answered"
     );
 }
@@ -409,6 +412,7 @@ async fn a_chain_refusal_surfaces_typed_under_the_request_id() {
                     node: target(),
                     via: Some(relay_id()),
                     detail: "dial failed".into(),
+                    transient: true,
                 },
             },
             Some(relay_id()),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 const RECIPE: &str = "model: org/m\ncontainer: img:tag\nruntime: metrale\n";
 
 fn remote(name: &str, fs: Arc<MemFileSystem>) -> RemoteRegistry {
-    let reg: RemoteRegistry = serde_yaml_ng::from_str(&format!(
+    let reg: RemoteRegistry = serde_norway::from_str(&format!(
         "name: {name}\nurl: https://example.invalid/{name}.git\npath: /cache/{name}\n"
     ))
     .expect("registry parses");
@@ -156,7 +156,7 @@ fn the_persisted_store_has_no_trust_field_at_all() {
     let fs = Arc::new(MemFileSystem::new());
     let mut store = RemoteStore::default();
     store.add(remote("third", fs.clone())).unwrap();
-    let yaml = serde_yaml_ng::to_string(&store).unwrap();
+    let yaml = serde_norway::to_string(&store).unwrap();
     for forbidden in ["trust", "trusted", "hook", "post_command", "exec"] {
         assert!(
             !yaml.contains(forbidden),

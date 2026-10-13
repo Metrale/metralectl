@@ -8,7 +8,6 @@
 //! without a socket; keeping the transport thin is what makes that true.
 
 use crate::guard;
-use crate::launcher::Launcher;
 use crate::session::{Session, SessionDeps};
 use anyhow::{Context, Result};
 use axum::Router;
@@ -16,6 +15,7 @@ use axum::extract::{ConnectInfo, State, WebSocketUpgrade, ws};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
+use metralectl_control::launcher::Launcher;
 use metralectl_core::registry::RegistrySet;
 use metralectl_protocol::msg::{ClientMsg, ServerMsg};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -37,6 +37,9 @@ pub struct AgentState {
     pub token: String,
     /// Whether this machine can run a recipe, and why not if it cannot.
     pub can_launch: Result<(), String>,
+    /// Whether this node takes new launches, shared with the peer channel's
+    /// control host.
+    pub admission: Arc<metralectl_control::admission::AdmissionGate>,
     /// What this machine's accelerator reports itself to be, for the launch
     /// path's hardware-aware refusal. Empty when the probe found nothing.
     pub accelerator: String,
@@ -57,7 +60,7 @@ pub struct AgentState {
     /// rather than by inventing a preview.
     pub cluster: Option<std::sync::Arc<dyn crate::session::ClusterControl>>,
     /// Sampling a running launch, when this agent can.
-    pub telemetry: Option<Box<dyn crate::session::LaunchTelemetry>>,
+    pub telemetry: Option<Box<dyn metralectl_control::LaunchTelemetry>>,
     /// Routes a control verb toward another machine.
     ///
     /// `None` on an agent with no peer transport, which answers such verbs
@@ -176,6 +179,7 @@ async fn run_session(mut socket: ws::WebSocket, state: Arc<AgentState>) {
         launcher: state.launcher.clone(),
         token: &state.token,
         can_launch: state.can_launch.clone(),
+        admission: Arc::clone(&state.admission),
         accelerator: &state.accelerator,
         fleet: state.fleet.as_deref(),
         cluster: state.cluster.as_deref(),

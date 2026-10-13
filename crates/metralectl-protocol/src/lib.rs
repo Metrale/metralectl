@@ -8,6 +8,7 @@
 //! surface a webpage can reach is small enough to read in one sitting.
 
 pub mod fleet;
+pub mod hexid;
 pub mod id;
 pub mod msg;
 pub mod settings;
@@ -17,6 +18,7 @@ pub use fleet::{
     AlertKind, DisplayName, Launchability, LinkClass, Metric, NodeAddress, NodeAlert,
     NodeDescriptor, NodeId, NodeIdError, NodeVitals, PairingState, Severity,
 };
+pub use hexid::TraceId;
 pub use id::{RecipeId, RecipeIdError};
 pub use msg::{
     AgentError, BenchEvent, BenchNodeInfo, BenchRefusal, BenchRep, BenchReq, ClientMsg, GateId,

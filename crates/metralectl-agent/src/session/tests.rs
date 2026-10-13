@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use super::*;
-use crate::launcher::{Call, RecordingLauncher};
+use metralectl_control::launcher::{Call, RecordingLauncher};
 use metralectl_protocol::RecipeId;
 use metralectl_protocol::settings::{SettingError, SettingValue};
 use std::collections::BTreeMap;
@@ -53,6 +53,9 @@ impl Fixture {
             launcher: self.launcher.clone(),
             token: TOKEN,
             can_launch: self.can_launch.clone(),
+            admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
             fleet: None,
             cluster: None,
             telemetry: None,
@@ -88,6 +91,9 @@ fn the_agent_speaks_first_with_a_version_range() {
         launcher: f.launcher.clone(),
         token: TOKEN,
         can_launch: Ok(()),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         fleet: None,
         cluster: None,
         telemetry: None,
@@ -318,7 +324,7 @@ async fn a_valid_launch_reaches_the_launcher_with_exactly_the_checked_settings()
         "got {out:?}"
     );
     match &f.launcher.calls()[0] {
-        Call::Launch(name, overrides) => {
+        Call::Launch(name, overrides, _) => {
             assert_eq!(name, REAL);
             assert_eq!(
                 overrides.len(),

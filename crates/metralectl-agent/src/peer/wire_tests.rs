@@ -55,8 +55,8 @@ fn full_vitals() -> NodeVitals {
         memory_used_frac: Metric::reading(0.83),
         memory_total_bytes: Metric::reading(128_000_000_000.0),
         disk_free_bytes: Metric::reading(512_000_000_000.0),
-        docker_ok: true,
-        agent_uptime_s: 86_400,
+        docker_ok: Some(true),
+        agent_uptime_s: Some(86_400),
     }
 }
 
@@ -162,6 +162,7 @@ async fn control_frames_round_trip() {
     let node = NodeId::from_bytes([9; 32]);
     let frames = [
         PeerFrame::ControlTo {
+            trace: None,
             node,
             req: ControlReq::Logs {
                 recipe: metralectl_protocol::id::RecipeId::parse("qwen3.8-27b").expect("id"),
@@ -169,9 +170,11 @@ async fn control_frames_round_trip() {
             },
         },
         PeerFrame::Control {
+            trace: None,
             req: ControlReq::Status,
         },
         PeerFrame::ControlReply {
+            trace: None,
             rep: ControlRep::Refused {
                 by: node,
                 error: metralectl_protocol::msg::AgentError::ControlRefused {
@@ -187,4 +190,33 @@ async fn control_frames_round_trip() {
         let back = read_frame(&mut &wire[..]).await.expect("reads");
         assert_eq!(back, frame);
     }
+}
+
+/// The attempt and trace ride beside the request: present, they round-trip;
+/// absent, the frame is byte-for-byte what a build without them writes, and
+/// such a build's frame decodes. Sabotage: dropping `skip_serializing_if`
+/// writes `"trace":null` at a peer that never heard of the field.
+#[tokio::test]
+async fn the_trace_is_carried_beside_the_request_and_optional_on_the_wire() {
+    use metralectl_protocol::msg::{AttemptId, ControlTrace};
+    let trace = ControlTrace {
+        attempt: AttemptId::from_bytes([3; 16]).expect("bytes"),
+        trace_id: metralectl_protocol::TraceId::from_bytes([4; 16]).expect("non-zero"),
+    };
+    let traced = PeerFrame::Control {
+        req: ControlReq::Status,
+        trace: Some(trace),
+    };
+    let mut wire = Vec::new();
+    write_frame(&mut wire, &traced).await.expect("writes");
+    assert_eq!(read_frame(&mut &wire[..]).await.expect("reads"), traced);
+
+    let plain = serde_json::to_string(&PeerFrame::Control {
+        req: ControlReq::Status,
+        trace: None,
+    })
+    .expect("json");
+    assert_eq!(plain, r#"{"type":"control","req":{"type":"status"}}"#);
+    let old: PeerFrame = serde_json::from_str(&plain).expect("an older build's frame");
+    assert!(matches!(old, PeerFrame::Control { trace: None, .. }));
 }

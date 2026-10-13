@@ -8,8 +8,8 @@
 //! socket, and it means the websocket layer has no decisions of its own to get
 //! wrong.
 
-use crate::launcher::Launcher;
 use crate::token;
+use metralectl_control::launcher::Launcher;
 use metralectl_core::registry::RegistrySet;
 use metralectl_core::settings;
 use metralectl_protocol::PROTOCOL_VERSION;
@@ -36,6 +36,9 @@ pub struct SessionDeps<'a> {
     pub token: &'a str,
     /// Whether this machine can run a recipe at all.
     pub can_launch: Result<(), String>,
+    /// Whether this node takes new launches; shared with the peer channel's
+    /// control core, so a cordon is heard by both.
+    pub admission: std::sync::Arc<metralectl_control::admission::AdmissionGate>,
     /// What this machine's accelerator reports itself to be. Carried so the
     /// launch path can refuse a setting that is merely CAUTIONED at a keyboard
     /// — there is no operator on this surface to read a warning. Empty when
@@ -348,16 +351,17 @@ impl<'a> Session<'a> {
 
     /// The shared control core over this session's dependencies.
     ///
-    /// Built per call, from borrows: the same [`crate::control::LocalControl`]
+    /// Built per call, from borrows: the same [`metralectl_control::control::LocalControl`]
     /// the peer channel's terminal `Control` handler executes through, so a
     /// relayed verb cannot reach a check the local one skips or vice versa.
-    fn control(&self) -> crate::control::LocalControl<'_> {
-        crate::control::LocalControl {
+    fn control(&self) -> metralectl_control::control::LocalControl<'_> {
+        metralectl_control::control::LocalControl {
             registry: self.deps.registry,
             launcher: self.deps.launcher.clone(),
             telemetry: self.deps.telemetry,
             can_launch: &self.deps.can_launch,
             accelerator: self.deps.accelerator,
+            admission: &self.deps.admission,
         }
     }
 
@@ -403,7 +407,7 @@ mod launch;
 mod remote;
 pub use remote::ControlRelay;
 pub mod telemetry;
-pub use telemetry::LaunchTelemetry;
+use metralectl_control::LaunchTelemetry;
 
 #[cfg(test)]
 mod tests;

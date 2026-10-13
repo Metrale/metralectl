@@ -52,6 +52,7 @@ pub(super) fn scheduled_task(agent: &AgentInvocation, home: &Path) -> ServicePla
     // crash nobody can reproduce.
     let unit_body = format!(
         "<?xml version=\"1.0\"?>\n\
+         {}\
          <Task version=\"1.4\" \
          xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\n\
          \x20 <RegistrationInfo>\n\
@@ -95,6 +96,7 @@ pub(super) fn scheduled_task(agent: &AgentInvocation, home: &Path) -> ServicePla
          \x20   </Exec>\n\
          \x20 </Actions>\n\
          </Task>\n",
+        agent.xml_marker(),
         xml_escape(command),
         xml_escape(&args)
     );

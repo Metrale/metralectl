@@ -9,9 +9,9 @@
 //! from the container that is actually running is the only source that cannot
 //! be wrong.
 
-use metralectl_agent::launchstats::LaunchSampler;
-use metralectl_agent::logs::{LogTail, sanitize};
-use metralectl_agent::session::LaunchTelemetry;
+use metralectl_control::LaunchTelemetry;
+use metralectl_control::launchstats::LaunchSampler;
+use metralectl_control::logs::{LogTail, sanitize};
 use metralectl_core::docker::translate::LABEL_RECIPE;
 use metralectl_core::io::ProcessRunner;
 use metralectl_protocol::RecipeId;
@@ -125,23 +125,9 @@ impl LaunchTelemetry for LocalLaunchTelemetry {
             }
         }
         let port = self.port_of(recipe.as_str())?;
-        let s = self
-            .sampler
+        self.sampler
             .sample(port, Instant::now())
-            .map_err(|e| format!("{e:#}"))?;
-        Ok(LaunchReading {
-            requests_total: s.requests_total,
-            requests_active: s.requests_active,
-            decode_tokens_per_s: s.decode_tokens_per_s,
-            prompt_tokens_per_s: s.prompt_tokens_per_s,
-            ttft_p50_s: s.ttft_p50_s,
-            ttft_p90_s: s.ttft_p90_s,
-            accept_rate: s.accept_rate,
-            prefix_hit_rate: s.prefix_hit_rate,
-            isl_mean: s.isl_mean,
-            osl_mean: s.osl_mean,
-            window_s: s.window_s,
-        })
+            .map_err(|e| format!("{e:#}"))
     }
 
     fn logs(&self, recipe: &RecipeId, lines: u32) -> Result<LogTail, String> {

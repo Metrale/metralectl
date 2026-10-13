@@ -50,8 +50,14 @@ mod join;
 mod peer_serve;
 
 #[cfg(test)]
+#[path = "daemon/peer_serve_rig.rs"]
+mod peer_serve_rig;
+#[cfg(test)]
 #[path = "daemon/peer_serve_tests.rs"]
 mod peer_serve_tests;
+#[cfg(test)]
+#[path = "daemon/peer_serve_trace_tests.rs"]
+mod peer_serve_trace_tests;
 
 #[cfg(test)]
 #[path = "daemon/bench_loopback_tests.rs"]
@@ -112,7 +118,7 @@ pub struct PeerWork {
     pub accelerator: String,
     /// The control core a peer's terminal `Control` executes through — the
     /// same seven verbs, the same validation, as this machine's own browser.
-    pub control: Arc<crate::control::ControlHost>,
+    pub control: Arc<metralectl_control::control::ControlHost>,
     /// The bench host, when this agent has a `bench.yaml`.
     pub bench: Option<Arc<crate::bench::BenchHost>>,
     /// Why bench is off, otherwise.

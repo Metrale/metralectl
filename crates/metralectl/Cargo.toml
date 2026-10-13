@@ -16,12 +16,13 @@ path = "src/main.rs"
 
 [dependencies]
 metralectl-agent.workspace = true
+metralectl-control.workspace = true
 metralectl-core.workspace = true
 anyhow.workspace = true
 clap = { version = "4", features = ["derive"] }
 rustix = { version = "1", features = ["process"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-serde_yaml_ng.workspace = true
+serde_norway.workspace = true
 metralectl-protocol = { version = "0.1.1", path = "../metralectl-protocol" } # x-release-please-version
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

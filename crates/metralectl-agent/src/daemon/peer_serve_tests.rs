@@ -4,210 +4,15 @@
 //!
 //! Everything here runs against the REAL dispatch (`serve_peer_connection`)
 //! with a real pin store on disk — only the network and the container
-//! runtime are faked. The rules that need an actual second and third agent
-//! (R4's dial, R5, R6's behavioural half) are proven in `relay_tests.rs`;
-//! this file proves every refusal that must happen BEFORE any dial.
+//! runtime are faked (`peer_serve_rig.rs`). The rules that need an actual
+//! second and third agent (R4's dial, R5, R6's behavioural half) are proven in
+//! `relay_tests.rs`; this file proves every refusal that must happen BEFORE
+//! any dial.
 
-use super::peer_serve::{PeerServe, serve_peer_connection};
-use crate::control::ControlHost;
-use crate::identity::{Identity, PinStore};
-use crate::launcher::{Launcher, RecordingLauncher};
-use crate::peer::wire::{
-    PEER_PROTOCOL_MAX, PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame,
-};
-use metralectl_core::registry::RegistrySet;
-use metralectl_protocol::fleet::{DisplayName, Launchability, NodeId};
+use super::peer_serve_rig::*;
+use crate::peer::wire::{PeerFrame, read_frame, write_frame};
+use metralectl_protocol::fleet::{DisplayName, NodeId};
 use metralectl_protocol::msg::{AgentError, ControlRep, ControlReq};
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Duration;
-
-struct Tmp(PathBuf);
-
-impl Tmp {
-    fn new(tag: &str) -> Self {
-        let mut p = std::env::temp_dir();
-        p.push(format!(
-            "metralectl-peerserve-{tag}-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_nanos())
-        ));
-        std::fs::create_dir_all(&p).expect("scratch");
-        Self(p)
-    }
-}
-
-impl Drop for Tmp {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
-    }
-}
-
-/// A shared handle onto the recording launcher, so a test can inspect what
-/// the serving path did after handing ownership to the [`ControlHost`].
-#[derive(Clone)]
-struct SharedLauncher(Arc<RecordingLauncher>);
-
-impl Launcher for SharedLauncher {
-    fn preview(
-        &self,
-        recipe: &metralectl_core::Recipe,
-        o: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Preview, AgentError> {
-        self.0.preview(recipe, o)
-    }
-    fn launch(
-        &self,
-        recipe: &metralectl_core::Recipe,
-        o: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Started, AgentError> {
-        self.0.launch(recipe, o)
-    }
-    fn stop(&self, recipe: &str) -> Result<(), AgentError> {
-        self.0.stop(recipe)
-    }
-    fn running(&self) -> Result<Vec<metralectl_protocol::msg::RunningLaunch>, AgentError> {
-        self.0.running()
-    }
-}
-
-/// A rank service that must never be reached by a control frame.
-struct Unreachable;
-
-impl crate::rank::RankService for Unreachable {
-    fn render(&self, _: &crate::cluster::RankAssignment) -> anyhow::Result<(String, Vec<String>)> {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn content_hash(&self, _: &str) -> anyhow::Result<String> {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn recipe_port(&self, _: &str) -> anyhow::Result<Option<u16>> {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn prepare(&self, _: &str, _: &crate::cluster::RankAssignment) -> crate::cluster::PrepareReply {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn commit(&self, _: &str) -> anyhow::Result<String> {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn alive(&self, _: &str) -> anyhow::Result<bool> {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn stop(&self, _: &str) -> anyhow::Result<()> {
-        panic!("a control frame must not reach the rank service");
-    }
-    fn abort(&self, _: &str) {
-        panic!("a control frame must not reach the rank service");
-    }
-}
-
-struct Rig {
-    _tmp: Tmp,
-    pins: PinStore,
-    launcher: Arc<RecordingLauncher>,
-    serve: Arc<PeerServe>,
-    local: NodeId,
-}
-
-fn rig(tag: &str) -> Rig {
-    let tmp = Tmp::new(tag);
-    let identity = Arc::new(Identity::load_or_create(&tmp.0).expect("identity"));
-    let local = identity.id();
-    let pins = PinStore::new(&tmp.0);
-    let fleet = Arc::new(crate::fleet::LocalFleet::new(
-        Identity::load_or_create(&tmp.0).expect("same identity from disk"),
-        pins.clone(),
-        DisplayName::new("serving-box"),
-        Vec::new(),
-        Launchability::yes(),
-        "GB10".to_owned(),
-    ));
-    let launcher = Arc::new(RecordingLauncher::new());
-    let serve = Arc::new(PeerServe {
-        identity,
-        pins: pins.clone(),
-        fleet,
-        rank: Arc::new(Unreachable),
-        control: Arc::new(ControlHost::new(
-            RegistrySet::builtin_only(),
-            Arc::new(SharedLauncher(Arc::clone(&launcher))),
-            None,
-            Ok(()),
-            "NVIDIA GB10".to_owned(),
-        )),
-        peer_port: 34334,
-        // Tests never reach a real dial; the budget only has to exist.
-        answer_budget: Duration::from_secs(2),
-        bench: None,
-        bench_disabled: None,
-    });
-    Rig {
-        _tmp: tmp,
-        pins,
-        launcher,
-        serve,
-        local,
-    }
-}
-
-fn sender() -> NodeId {
-    NodeId::from_bytes([0x5e; 32])
-}
-
-fn pin_sender(pins: &PinStore, granted: bool) {
-    crate::fleet::record_pairing(
-        pins,
-        sender(),
-        "aa",
-        DisplayName::new("requester"),
-        0,
-        None,
-        false,
-    )
-    .expect("pin");
-    if granted {
-        assert!(pins.set_controller(sender(), true).expect("grant"));
-    }
-}
-
-/// Drive one serving task and return a client-side stream that has already
-/// completed the hello exchange.
-async fn connected(rig: &Rig) -> (tokio::io::DuplexStream, tokio::task::JoinHandle<()>) {
-    let (mut ours, mut theirs) = tokio::io::duplex(1 << 16);
-    let serve = Arc::clone(&rig.serve);
-    let s = sender();
-    let task = tokio::spawn(async move {
-        serve_peer_connection(&mut theirs, &serve, s).await;
-    });
-    write_frame(
-        &mut ours,
-        &PeerFrame::Hello {
-            version: PEER_PROTOCOL_VERSION,
-            name: "client".to_owned(),
-            can_launch: false,
-            accelerator: String::new(),
-            os: "Linux".to_owned(),
-            addresses: Vec::new(),
-            version_max: Some(PEER_PROTOCOL_MAX),
-            vouched: None,
-        },
-    )
-    .await
-    .expect("hello");
-    let hello = read_frame(&mut ours).await.expect("hello back");
-    assert!(matches!(hello, PeerFrame::Hello { .. }));
-    (ours, task)
-}
-
-async fn ask(stream: &mut tokio::io::DuplexStream, frame: &PeerFrame) -> ControlRep {
-    write_frame(stream, frame).await.expect("send");
-    match read_frame(stream).await.expect("answered, not dropped") {
-        PeerFrame::ControlReply { rep } => rep,
-        other => panic!("expected a control reply, got {other:?}"),
-    }
-}
 
 /// T2 — the retroactive-widening regression test: a peer that is PINNED but
 /// not granted `controller` sends a terminal `Control` directly and is
@@ -222,6 +27,7 @@ async fn a_pinned_but_ungranted_sender_is_refused_terminal_control() {
     let rep = ask(
         &mut c,
         &PeerFrame::Control {
+            trace: None,
             req: ControlReq::Status,
         },
     )
@@ -258,6 +64,7 @@ async fn a_granted_sender_executes_through_the_local_core() {
     let rep = ask(
         &mut c,
         &PeerFrame::Control {
+            trace: None,
             req: ControlReq::Status,
         },
     )
@@ -267,7 +74,7 @@ async fn a_granted_sender_executes_through_the_local_core() {
         r.launcher
             .calls()
             .iter()
-            .any(|c| matches!(c, crate::launcher::Call::Running)),
+            .any(|c| matches!(c, metralectl_control::launcher::Call::Running)),
         "the status must have come from the launcher"
     );
     drop(c);
@@ -286,6 +93,7 @@ async fn revoking_the_grant_takes_effect_on_the_very_next_frame() {
     let first = ask(
         &mut c,
         &PeerFrame::Control {
+            trace: None,
             req: ControlReq::Status,
         },
     )
@@ -297,6 +105,7 @@ async fn revoking_the_grant_takes_effect_on_the_very_next_frame() {
     let second = ask(
         &mut c,
         &PeerFrame::Control {
+            trace: None,
             req: ControlReq::Status,
         },
     )
@@ -326,6 +135,7 @@ async fn a_relayed_launch_is_schema_validated_before_the_launcher() {
     let rep = ask(
         &mut c,
         &PeerFrame::Control {
+            trace: None,
             req: ControlReq::Launch {
                 recipe: metralectl_protocol::RecipeId::parse("qwen3.6-27b-fp8").expect("id"),
                 settings: [(
@@ -366,6 +176,7 @@ async fn an_ungranted_sender_cannot_ask_for_a_forward() {
     let rep = ask(
         &mut c,
         &PeerFrame::ControlTo {
+            trace: None,
             node: target,
             req: ControlReq::Status,
         },
@@ -374,7 +185,9 @@ async fn an_ungranted_sender_cannot_ask_for_a_forward() {
     match rep {
         ControlRep::Refused {
             by,
-            error: AgentError::RelayRefused { node, via, detail },
+            error: AgentError::RelayRefused {
+                node, via, detail, ..
+            },
         } => {
             assert_eq!(by, r.local);
             assert_eq!(via, Some(r.local), "the relay names itself in the error");
@@ -403,6 +216,7 @@ async fn a_relay_refuses_to_reach_a_node_it_has_not_itself_pinned() {
     let rep = ask(
         &mut c,
         &PeerFrame::ControlTo {
+            trace: None,
             node: stranger,
             req: ControlReq::Status,
         },
@@ -411,7 +225,9 @@ async fn a_relay_refuses_to_reach_a_node_it_has_not_itself_pinned() {
     match rep {
         ControlRep::Refused {
             by,
-            error: AgentError::RelayRefused { node, via, detail },
+            error: AgentError::RelayRefused {
+                node, via, detail, ..
+            },
         } => {
             assert_eq!(by, r.local);
             assert_eq!(via, Some(r.local), "the relay names itself in the error");
@@ -439,6 +255,7 @@ async fn a_pinned_target_with_no_known_address_is_refused_not_guessed() {
     let rep = ask(
         &mut c,
         &PeerFrame::ControlTo {
+            trace: None,
             node: target,
             req: ControlReq::Status,
         },

@@ -29,7 +29,8 @@ pub trait ControlRelay: Send + Sync {
     ///
     /// # Errors
     /// `NotRoutable` when this agent has no route at all, `RelayRefused` /
-    /// `ControlRefused` when someone on the path said no.
+    /// `ControlRefused` when someone on the path said no, `AlreadyRunning`
+    /// when a `Launch` whose reply was lost is found running on the target.
     ///
     /// Returns a boxed future rather than being an `async fn`: this trait is
     /// used as `dyn ControlRelay`, and an `async fn` in a trait is not

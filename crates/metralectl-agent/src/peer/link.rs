@@ -14,8 +14,10 @@
 //! authenticated handshake with it, and not otherwise.
 //!
 //! Failure here is ordinary. A peer that is switched off is the normal state of
-//! a fleet, so a failed dial is recorded and retried with backoff rather than
-//! logged as an error.
+//! a fleet, so a failed dial is not logged as an error: the daemon's poll
+//! clears that peer's last report, so stale vitals are not shown as current,
+//! and dials it again on the next tick of its fixed interval. There is no
+//! backoff; [`DIAL_TIMEOUT`] bounds what one silent peer costs a tick.
 
 use super::tls::{PinnedPeerVerifier, client_config, peer_identity};
 use super::wire::{PEER_PROTOCOL_MAX, PEER_PROTOCOL_VERSION, PeerFrame, read_frame, write_frame};

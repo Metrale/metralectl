@@ -13,7 +13,7 @@
 //! this at another host and use the agent as a scanner.
 
 use anyhow::{Context, Result, bail};
-use metralectl_agent::launchstats::MetricsSource;
+use metralectl_control::launchstats::MetricsSource;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
 use std::time::Duration;

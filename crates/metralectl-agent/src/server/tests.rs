@@ -3,7 +3,7 @@
 //! Transport-level tests, over a real socket on an ephemeral loopback port.
 
 use super::*;
-use crate::launcher::RecordingLauncher;
+use metralectl_control::launcher::RecordingLauncher;
 use std::sync::Arc;
 
 const TOKEN: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -15,6 +15,9 @@ fn state(port: u16) -> Arc<AgentState> {
         launcher: std::sync::Arc::new(RecordingLauncher::new()),
         token: TOKEN.to_string(),
         can_launch: Ok(()),
+        admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+            metralectl_control::admission::Admission::Open,
+        )),
         joining: None,
         relay: None,
         fleet: None,
@@ -139,25 +142,33 @@ struct SleepyLauncher {
     delay: std::time::Duration,
 }
 
-impl crate::launcher::Launcher for SleepyLauncher {
+impl metralectl_control::launcher::Launcher for SleepyLauncher {
     fn preview(
         &self,
         _: &metralectl_core::Recipe,
         _: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Preview, metralectl_protocol::msg::AgentError> {
+    ) -> Result<metralectl_control::launcher::Preview, metralectl_protocol::msg::AgentError> {
         Err(metralectl_protocol::msg::AgentError::NotReady)
     }
     fn launch(
         &self,
         _: &metralectl_core::Recipe,
         _: &std::collections::BTreeMap<String, metralectl_core::ScalarValue>,
-    ) -> Result<crate::launcher::Started, metralectl_protocol::msg::AgentError> {
+        _: &metralectl_control::launcher::LaunchFor,
+    ) -> Result<metralectl_control::launcher::Started, metralectl_protocol::msg::AgentError> {
         // Exactly what the real launcher does to the calling thread.
         std::thread::sleep(self.delay);
-        Ok(crate::launcher::Started {
+        Ok(metralectl_control::launcher::Started {
             container: "metrale-sleepy".to_owned(),
             endpoint: None,
         })
+    }
+    fn fetch_image(
+        &self,
+        _: &metralectl_control::platform::scalars::OciImage,
+    ) -> Result<(), String> {
+        // Not reached: nothing here launches a release.
+        Err("not reached".to_owned())
     }
     fn stop(&self, _: &str) -> Result<(), metralectl_protocol::msg::AgentError> {
         Ok(())
@@ -167,6 +178,13 @@ impl crate::launcher::Launcher for SleepyLauncher {
     ) -> Result<Vec<metralectl_protocol::msg::RunningLaunch>, metralectl_protocol::msg::AgentError>
     {
         Ok(Vec::new())
+    }
+    fn workloads(
+        &self,
+    ) -> Result<Vec<metralectl_control::launcher::Workload>, metralectl_protocol::msg::AgentError>
+    {
+        // Not reached: nothing here reconciles a deployment.
+        Err(metralectl_protocol::msg::AgentError::NotReady)
     }
 }
 
@@ -212,6 +230,9 @@ async fn a_launch_does_not_park_the_only_worker() {
             launcher,
             token: TOKEN,
             can_launch: Ok(()),
+            admission: std::sync::Arc::new(metralectl_control::admission::AdmissionGate::new(
+                metralectl_control::admission::Admission::Open,
+            )),
             fleet: None,
             cluster: None,
             telemetry: None,

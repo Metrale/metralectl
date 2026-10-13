@@ -282,8 +282,9 @@ pub enum ServerMsg {
         recipe: RecipeId,
         /// The reading. Every field is optional: absent means the engine does
         /// not report it, or that there is not yet a second sample to
-        /// difference against — never zero.
-        stats: crate::msg::LaunchReading,
+        /// difference against — never zero. Boxed: it is by far the largest
+        /// reply, and the wire form is the same.
+        stats: Box<crate::msg::LaunchReading>,
         /// Which node's answer this is. `None` = this machine. See
         /// [`Self::Recipes`] for why the server states it.
         #[serde(default)]

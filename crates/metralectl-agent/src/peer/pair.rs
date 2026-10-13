@@ -231,5 +231,8 @@ where
 /// Separate from the three `bail!` sites so the rule has one owner and a test
 /// can prove it rather than proving `sanitize` in isolation.
 pub(super) fn refusal_message(reason: &str) -> String {
-    format!("the other node refused: {}", crate::logs::sanitize(reason))
+    format!(
+        "the other node refused: {}",
+        metralectl_control::logs::sanitize(reason)
+    )
 }

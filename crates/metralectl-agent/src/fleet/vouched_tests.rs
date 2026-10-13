@@ -36,8 +36,8 @@ fn vitals() -> NodeVitals {
         memory_used_frac: Metric::Unsupported,
         memory_total_bytes: Metric::Unsupported,
         disk_free_bytes: Metric::Unsupported,
-        docker_ok: true,
-        agent_uptime_s: 5,
+        docker_ok: Some(true),
+        agent_uptime_s: Some(5),
     }
 }
 
