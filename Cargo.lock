@@ -844,14 +844,14 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "metrale-recipes-data"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "include_dir",
 ]
 
 [[package]]
 name = "metralectl"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -873,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "metralectl-agent"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -904,7 +904,7 @@ dependencies = [
 
 [[package]]
 name = "metralectl-control"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "ed25519-dalek",
@@ -921,7 +921,7 @@ dependencies = [
 
 [[package]]
 name = "metralectl-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "libc",
@@ -938,7 +938,7 @@ dependencies = [
 
 [[package]]
 name = "metralectl-protocol"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
