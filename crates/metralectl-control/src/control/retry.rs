@@ -338,7 +338,10 @@ fn noted(error: AgentError, attempts: u32, last_responder: Option<NodeId>) -> Ag
 ///
 /// `attempt` is the transport: one send, its answer or its loss. Its `Err`
 /// is a local refusal no retry can change — no route at all — and ends the
-/// run at once.
+/// run at once. `wait` is the clock: it is handed each pause the machine
+/// asks for and does the waiting, so this driver touches no timer of its own
+/// and the pauses are testable without a runtime. The host's port is
+/// `|d| Box::pin(tokio::time::sleep(d))`.
 ///
 /// # Errors
 /// Whatever `attempt` refuses with.
@@ -347,6 +350,7 @@ pub async fn drive<'a, F>(
     req: ControlReq,
     budget: RetryBudget,
     mut attempt: F,
+    wait: impl Fn(Duration) -> crate::BoxFut<'a, ()>,
 ) -> Result<Outcome, AgentError>
 where
     F: FnMut(ControlReq) -> crate::BoxFut<'a, Result<Attempt, AgentError>>,
@@ -357,7 +361,7 @@ where
             Step::Done(outcome) => return Ok(outcome),
             Step::Send { req, pause } => {
                 if !pause.is_zero() {
-                    tokio::time::sleep(pause).await;
+                    wait(pause).await;
                 }
                 step = run.record(attempt(req).await?);
             }

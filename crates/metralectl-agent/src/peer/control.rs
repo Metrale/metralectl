@@ -319,9 +319,13 @@ impl crate::session::ControlRelay for ControlDriver {
             // One attempt and trace for the request, kept by every retry of
             // it, so the target's container and every leg name the same one.
             let trace = mint_trace();
-            drive(target, req, self.retry, |req| {
-                Box::pin(self.attempt(target, req, trace))
-            })
+            drive(
+                target,
+                req,
+                self.retry,
+                |req| Box::pin(self.attempt(target, req, trace)),
+                |d| Box::pin(tokio::time::sleep(d)),
+            )
             .await?
             .into_relay()
         })

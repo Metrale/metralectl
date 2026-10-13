@@ -322,6 +322,16 @@ fn a_launch_found_running_is_reported_as_already_running() {
     );
 }
 
+/// The pause port the tests hand the driver: it records every pause the
+/// machine asks for and waits not at all.
+fn never_wait() -> impl Fn(Duration) -> crate::BoxFut<'static, ()> {
+    let waited = Arc::new(Mutex::new(Vec::new()));
+    move |pause| {
+        waited.lock().expect("lock").push(pause);
+        Box::pin(async {})
+    }
+}
+
 /// The driver sends through its port and stops on a local refusal at once.
 /// Sabotage: retrying the port's `Err` sends a second request.
 #[tokio::test]
@@ -332,15 +342,21 @@ async fn the_driver_ends_on_a_local_refusal_without_another_send() {
         attempts: NonZeroU32::new(3).expect("non-zero"),
         pause: Duration::ZERO,
     };
-    let result = drive(target(), launch(), b, move |req| {
-        log.lock().expect("lock").push(req);
-        Box::pin(async {
-            Err(AgentError::NotRoutable {
-                node: target(),
-                reason: "not paired".to_owned(),
+    let result = drive(
+        target(),
+        launch(),
+        b,
+        move |req| {
+            log.lock().expect("lock").push(req);
+            Box::pin(async {
+                Err(AgentError::NotRoutable {
+                    node: target(),
+                    reason: "not paired".to_owned(),
+                })
             })
-        })
-    })
+        },
+        never_wait(),
+    )
     .await;
     assert!(matches!(result, Err(AgentError::NotRoutable { .. })));
     assert_eq!(sends.lock().expect("lock").len(), 1);
@@ -356,11 +372,17 @@ async fn the_driver_follows_the_machine_to_its_outcome() {
         attempts: NonZeroU32::new(3).expect("non-zero"),
         pause: Duration::ZERO,
     };
-    let outcome = drive(target(), launch(), b, move |req| {
-        log.lock().expect("lock").push(req);
-        let answer = answers.lock().expect("lock").pop().expect("scripted");
-        Box::pin(async move { Ok(answer) })
-    })
+    let outcome = drive(
+        target(),
+        launch(),
+        b,
+        move |req| {
+            log.lock().expect("lock").push(req);
+            let answer = answers.lock().expect("lock").pop().expect("scripted");
+            Box::pin(async move { Ok(answer) })
+        },
+        never_wait(),
+    )
     .await
     .expect("no local refusal");
     assert_eq!(
@@ -368,4 +390,34 @@ async fn the_driver_follows_the_machine_to_its_outcome() {
         vec![launch(), ControlReq::Status, launch()]
     );
     assert!(matches!(outcome, Outcome::Answered { attempts: 3, .. }));
+}
+
+/// The pauses before every send after the first go through the wait port,
+/// and the first send waits not at all. Sabotage: sleeping inside the driver
+/// (a clock it owns) or dropping the pause breaks one side of this.
+#[tokio::test]
+async fn the_driver_waits_through_the_pause_port_between_sends() {
+    let script = Arc::new(Mutex::new(vec![started(), lost()]));
+    let (log, answers) = (Arc::new(Mutex::new(Vec::new())), Arc::clone(&script));
+    let b = budget(3);
+    let waited = Arc::new(Mutex::new(Vec::new()));
+    let record = Arc::clone(&waited);
+    let outcome = drive(
+        target(),
+        launch(),
+        b,
+        move |req| {
+            log.lock().expect("lock").push(req);
+            let answer = answers.lock().expect("lock").pop().expect("scripted");
+            Box::pin(async move { Ok(answer) })
+        },
+        move |pause| {
+            record.lock().expect("lock").push(pause);
+            Box::pin(async {})
+        },
+    )
+    .await
+    .expect("no local refusal");
+    assert_eq!(*waited.lock().expect("lock"), vec![b.pause]);
+    assert!(matches!(outcome, Outcome::Answered { attempts: 2, .. }));
 }
