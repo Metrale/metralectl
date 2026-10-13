@@ -21,7 +21,7 @@ pub fn parse_override(input: &str) -> Result<(String, ScalarValue)> {
     if key.is_empty() {
         bail!("empty key in `{input}`");
     }
-    let value = serde_yaml_ng::from_str::<ScalarValue>(raw)
+    let value = serde_norway::from_str::<ScalarValue>(raw)
         .unwrap_or_else(|_| ScalarValue::Str(raw.to_string()));
     Ok((key.to_string(), value))
 }

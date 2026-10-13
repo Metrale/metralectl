@@ -32,7 +32,7 @@ sha3 = { version = "=0.12.0", default-features = false }
 # The recording mocks are feature-gated so they never ship in a release build.
 metralectl-core = { workspace = true, features = ["test-mocks"] }
 tokio = { version = "1", features = ["rt", "macros", "time"] }
-serde_yaml_ng.workspace = true
+serde_norway.workspace = true
 
 [features]
 test-mocks = []

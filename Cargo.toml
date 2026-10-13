@@ -45,7 +45,7 @@ metralectl-agent = { path = "crates/metralectl-agent", version = "0.1.1" } # x-r
 anyhow = "1"
 include_dir = "0.7"
 serde = { version = "1", features = ["derive"] }
-serde_yaml_ng = "0.10"
+serde_norway = "0.9"
 thiserror = "2"
 
 [workspace.lints.rust]

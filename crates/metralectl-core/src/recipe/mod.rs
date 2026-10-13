@@ -94,7 +94,7 @@ pub enum RecipeError {
         name: String,
         /// The underlying YAML error.
         #[source]
-        source: serde_yaml_ng::Error,
+        source: serde_norway::Error,
     },
 
     /// A recipe with no `model:` names nothing to serve.
@@ -171,11 +171,10 @@ impl Recipe {
     ///
     /// Pure: takes the text and its provenance, touches no filesystem.
     pub fn parse(name: &str, yaml: &str, provenance: Provenance) -> Result<Self, RecipeError> {
-        let raw: RawRecipe =
-            serde_yaml_ng::from_str(yaml).map_err(|source| RecipeError::Parse {
-                name: name.to_string(),
-                source,
-            })?;
+        let raw: RawRecipe = serde_norway::from_str(yaml).map_err(|source| RecipeError::Parse {
+            name: name.to_string(),
+            source,
+        })?;
 
         let refused_keys: Vec<String> = raw
             .refused_keys()

@@ -32,7 +32,7 @@ fn registry() -> RegistrySet {
     );
     fs.insert(format!("/cache/t/recipes/{ANYWHERE}.yaml"), base);
     let remote: RemoteRegistry =
-        serde_yaml_ng::from_str("name: t\nurl: https://example.invalid/t.git\npath: /cache/t\n")
+        serde_norway::from_str("name: t\nurl: https://example.invalid/t.git\npath: /cache/t\n")
             .expect("registry parses");
     RegistrySet::with_remotes(vec![remote.with_fs(fs)])
 }

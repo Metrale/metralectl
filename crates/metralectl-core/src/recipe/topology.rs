@@ -52,7 +52,7 @@ mod tests {
     use super::*;
 
     fn raw(yaml: &str) -> RawRecipe {
-        serde_yaml_ng::from_str(yaml).expect("fixture parses")
+        serde_norway::from_str(yaml).expect("fixture parses")
     }
 
     #[test]

@@ -157,7 +157,7 @@ impl BenchConfig {
             }
             Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
         };
-        let cfg: Self = serde_yaml_ng::from_str(&text)
+        let cfg: Self = serde_norway::from_str(&text)
             .with_context(|| format!("{} does not parse", path.display()))?;
         cfg.validate()
             .with_context(|| format!("{} is unusable", path.display()))?;

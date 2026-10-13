@@ -164,12 +164,12 @@ impl RemoteStore {
         if !fs.exists(path) {
             return Ok(Self::default());
         }
-        Ok(serde_yaml_ng::from_str(&fs.read_to_string(path)?)?)
+        Ok(serde_norway::from_str(&fs.read_to_string(path)?)?)
     }
 
     /// Persist the store.
     pub fn save(&self, fs: &dyn FileSystem, path: &Path) -> Result<()> {
-        fs.write_atomic(path, &serde_yaml_ng::to_string(self)?)
+        fs.write_atomic(path, &serde_norway::to_string(self)?)
     }
 
     /// Add a registry, rejecting reserved and duplicate names.
