@@ -11,17 +11,23 @@ use crate::release::testing::{TestSigner, fixture};
 
 /// The vector's principal: the file is the principal plus a `purpose` note.
 fn published() -> RegistryPrincipal {
-    let mut v: serde_json::Value = fixture("vectors/release-signer.json");
+    let mut v: serde_json::Value = fixture!(serde_json::Value, "vectors/release-signer.json");
     v.as_object_mut().expect("an object").remove("purpose");
     serde_json::from_value(v).expect("a principal")
 }
 
 fn signature() -> DocumentSignature {
-    fixture("fixtures/document-signature/valid/release-manifest.json")
+    fixture!(
+        DocumentSignature,
+        "fixtures/document-signature/valid/release-manifest.json"
+    )
 }
 
 fn manifest_digest() -> Sha256Digest {
-    let m: ReleaseManifest = fixture("fixtures/release-manifest/valid/gpt-oss-20b-gb10.json");
+    let m: ReleaseManifest = fixture!(
+        ReleaseManifest,
+        "fixtures/release-manifest/valid/gpt-oss-20b-gb10.json"
+    );
     crate::platform::canonical::digest(&m).expect("integers")
 }
 

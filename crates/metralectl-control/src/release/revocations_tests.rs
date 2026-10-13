@@ -12,7 +12,10 @@ use crate::release::testing::{TestSigner, fixture, signer};
 /// The bundle's list: sequence 2, issued at 1_791_000_600_000, revoking a
 /// receipt and a release manifest.
 fn list() -> RevocationList {
-    fixture("fixtures/revocation-list/valid/two-revoked.json")
+    fixture!(
+        RevocationList,
+        "fixtures/revocation-list/valid/two-revoked.json"
+    )
 }
 
 const ISSUED: u64 = 1_791_000_600_000;

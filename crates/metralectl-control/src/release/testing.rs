@@ -93,16 +93,28 @@ pub(crate) fn signer() -> TestSigner {
     TestSigner::from_seed(7)
 }
 
-pub(crate) fn fixture<T: serde::de::DeserializeOwned>(rel: &str) -> T {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../schemas/platform/v1")
-        .join(rel);
-    serde_json::from_slice(&std::fs::read(path).expect("the vendored fixture")).expect("valid")
+/// Parse a vendored bundle fixture, embedded at compile time
+/// (`include_bytes!`, so no test reads the filesystem at run time and the
+/// path is fixed by the compiler; `../../..` is release/testing.rs to the
+/// workspace root, then `schemas/platform/v1`).
+macro_rules! fixture {
+    ($ty:ty, $rel:literal) => {
+        serde_json::from_slice::<$ty>(include_bytes!(concat!(
+            "../../../../schemas/platform/v1/",
+            $rel
+        )))
+        .expect("valid")
+    };
 }
+
+pub(crate) use fixture;
 
 /// The bundle's valid `gpt-oss-20b` recipe, as a release ships it.
 pub(crate) fn recipe() -> ModelRecipe {
-    fixture("fixtures/model-recipe/valid/gpt-oss-20b-mxfp4.json")
+    fixture!(
+        ModelRecipe,
+        "fixtures/model-recipe/valid/gpt-oss-20b-mxfp4.json"
+    )
 }
 
 /// The bundle's valid release manifest, bound to [`recipe`]. The bundle's
@@ -110,7 +122,10 @@ pub(crate) fn recipe() -> ModelRecipe {
 /// are; this sets the manifest's recipe and weights digests to the recipe's.
 pub(crate) fn manifest() -> ReleaseManifest {
     bind(
-        fixture("fixtures/release-manifest/valid/gpt-oss-20b-gb10.json"),
+        fixture!(
+            ReleaseManifest,
+            "fixtures/release-manifest/valid/gpt-oss-20b-gb10.json"
+        ),
         &recipe(),
     )
 }
