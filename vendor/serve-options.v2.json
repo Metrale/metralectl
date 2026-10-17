@@ -241,13 +241,27 @@
       "recipe_aliases": []
     },
     {
+      "key": "weight_quantization",
+      "flag": "weight-quantization",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [
+        "declared",
+        "nvfp4"
+      ],
+      "default": "declared",
+      "help": "Precision of each linear layer (default: declared)",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
       "key": "w4a4_downcast",
       "flag": "w4a4-downcast",
       "presence_only": true,
       "is_bool": true,
       "options": [],
       "default": "false",
-      "help": "Downcast activations to NVFP4 (W4A4) on the small-M projection paths (default: false)",
+      "help": "Downcast activations to NVFP4 (W4A4) on the small-M projection paths (default: false). Only with `--weight-quantization nvfp4`",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -259,6 +273,21 @@
       "options": [],
       "default": "false",
       "help": "Widen `--w4a4-downcast` from 1..=32 to 1..=64 rows (default: false)",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "expert_quantization",
+      "flag": "expert-quantization",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [
+        "fp8",
+        "nvfp4-gate-up",
+        "nvfp4"
+      ],
+      "default": "fp8",
+      "help": "Precision of a native-FP8 checkpoint's routed MoE experts in decode (default: fp8)",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -281,6 +310,17 @@
       "options": [],
       "default": null,
       "help": "Turn off mid-chunk SSM tail capture on the prefill path (on by default)",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "no_canonical_tiers",
+      "flag": "no-canonical-tiers",
+      "presence_only": true,
+      "is_bool": true,
+      "options": [],
+      "default": null,
+      "help": "Keep the row-count tiers on an FP8 MoE checkpoint (canonical tiers are on by default there)",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -344,6 +384,17 @@
       "options": [],
       "default": "128",
       "help": "Capacity of the queue that carries new requests to the scheduler",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "forward",
+      "flag": "forward",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "legacy",
+      "help": "Which forward decode runs: `legacy`, the hand-written layer loops, or `circuit`, the program compiled at boot from the model's circuit plan (`met circuit show`); `circuit-reference` compiles the plan without its bit-identical fusions. The circuit covers single-sequence decode so far; boot refuses a model, recipe or switch it does not model. No environment fallback",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -479,6 +530,72 @@
       "recipe_aliases": []
     },
     {
+      "key": "prompt_lookup_decoding",
+      "flag": "prompt-lookup-decoding",
+      "presence_only": true,
+      "is_bool": true,
+      "options": [],
+      "default": "false",
+      "help": "Prompt-lookup decoding (default: false): when a sequence's last `--prompt-lookup-ngram` tokens occurred earlier in its prompt or output, verify the tokens that followed that occurrence as this round's drafts, in place of the MTP drafter's chain; with no match the round is MTP's. Per sequence, inside batched verify, up to `--prompt-lookup-max-seqs` active sequences. Requires `--speculative`",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "prompt_lookup_ngram",
+      "flag": "prompt-lookup-ngram",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "4",
+      "help": "n-gram length a prompt-lookup match needs (default: 4). Longer matches propose less often and are wrong less often",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "prompt_lookup_max_drafts",
+      "flag": "prompt-lookup-max-drafts",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "3",
+      "help": "Most tokens one prompt-lookup copy proposes, the copy window's ceiling (default: 3). 1..=16. The first `--prompt-lookup-max-seqs` verify-pool slots are sized to hold this many drafts (about 64 MB per slot per draft above the MTP chain on Qwen3.6-35B-A3B, 152 MB on Qwen3.8-27B). A lone sequence verifies a copy of up to this length in one pass; inside a batch a copy is cut to 3 drafts, the batched verify's widest row count",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "prompt_lookup_min_match",
+      "flag": "prompt-lookup-min-match",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "4",
+      "help": "Tokens a prompt-lookup match must span, counted back from the end of the sequence (default: 4, at least `--prompt-lookup-ngram`). Longer matches copy less often on prose, where most short matches are coincidences",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "prompt_lookup_miss_backoff",
+      "flag": "prompt-lookup-miss-backoff",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "0",
+      "help": "Most rounds a sequence skips copying after copies that matched nothing (default: 0, never). The skip doubles with each miss in a row, up to this cap, and clears on any accepted copied token",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "prompt_lookup_max_seqs",
+      "flag": "prompt-lookup-max-seqs",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "8",
+      "help": "Widest batch that proposes prompt-lookup copies (default: 8). Wider batches run the MTP drafter only: a copy widens the verify, which costs most where the batch is compute-bound",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
       "key": "dflash",
       "flag": "dflash",
       "presence_only": true,
@@ -534,13 +651,46 @@
       "recipe_aliases": []
     },
     {
+      "key": "mtp_k_ladder",
+      "flag": "mtp-k-ladder",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": null,
+      "help": "MTP drafts per verify at each batch width, as `n_max:drafts` steps (default: `4:3,8:3,16:1,32:1`). A step applies up to `n_max` active sequences; wider batches take the last step. Counts are capped at `--num-drafts`. Example: `2:2,4:1,32:1` drafts twice at one or two sequences and once from three up. Setting it also pins the adaptive rung to these counts. The verify pools are sized from it",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "mtp_dcut_ratio",
+      "flag": "mtp-dcut-ratio",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": null,
+      "help": "D-Cut retention ratio for batched MTP verify (default: 0.75): the fraction of the prunable draft positions (depth 2 and deeper) a batched verify keeps, ranked by the drafter's confidence, snapped to 0.25, 0.5, 0.75 or 1.0; 1.0 keeps every draft. It acts only on steps with 2 or more drafts per sequence, so a `--num-drafts 1` serve is unaffected. Measured on GB10, Qwen3.6-35B-A3B-FP8, `--num-drafts 3`: 1.0 against 0.75 is +1.9% tok/s at C2 and +4.3% at C4, with the same verify time",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "mtp_max_seqs",
+      "flag": "mtp-max-seqs",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": null,
+      "help": "Widest batch that speculates (the multi-sequence MTP dispatch cap): above this many active sequences a step plain-decodes. Precedence (highest wins): this flag → MODEL.toml `[behavior].mtp_max_seqs` → 32 (4 under `METRALE_NO_MTP_K_LADDER`). 1..=128. The SSM verify pools cover this many sequences, about 138 MB each on Qwen3.6-35B-A3B",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
       "key": "max_batch_size",
       "flag": "max-batch-size",
       "presence_only": false,
       "is_bool": false,
       "options": [],
       "default": "8",
-      "help": "Maximum concurrent sequences batched into one GPU decode step",
+      "help": "Maximum concurrent sequences batched into one GPU decode step, or `auto`: the count (up to 128) that admits the most sequences at the full --max-seq-len, the per-sequence state (SSM and MTP pools) and the KV pool sized together at boot. The resolved count is logged and disclosed in benchmark records",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -556,6 +706,39 @@
       ],
       "default": "bf16",
       "help": "MTP head weight precision: bf16 (default), fp8 or nvfp4",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "draft_confidence_stop",
+      "flag": "draft-confidence-stop",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": null,
+      "help": "Per-position confidence stop for MTP draft chains (default: off). The drafter extends a chain past a draft only while that draft's top-1 probability is at least TAU, so a chain of up to `--num-drafts` ends with its first draft below TAU (still verified). Unconfident chains cost fewer drafter steps and fewer verify rows; confident ones run to full depth. It changes which drafts are verified, never the emitted tokens. 0 < TAU < 1. Requires `--speculative`; not with `--dflash`",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "mtp_experts_nvfp4",
+      "flag": "mtp-experts-nvfp4",
+      "presence_only": true,
+      "is_bool": true,
+      "options": [],
+      "default": "false",
+      "help": "Draft on NVFP4 copies of a BF16 MoE MTP head's experts (default: false)",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "nemotron_shared_expert_e4m3",
+      "flag": "nemotron-shared-expert-e4m3",
+      "presence_only": true,
+      "is_bool": true,
+      "options": [],
+      "default": "false",
+      "help": "Run the Nemotron-H shared expert's prefill projections on the E4M3 tile GEMM (default: false)",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -1039,6 +1222,17 @@
       "options": [],
       "default": "false",
       "help": "Ask the fast loader to prefetch each buffered shard before per-tensor reads. Also enabled by `METRALE_FAST_LOAD_PREFETCH_SHARDS=1` (or `true`)",
+      "cli_aliases": [],
+      "recipe_aliases": []
+    },
+    {
+      "key": "activation_quantization",
+      "flag": "activation-quantization",
+      "presence_only": false,
+      "is_bool": false,
+      "options": [],
+      "default": "declared",
+      "help": "Activation precision of each decode projection, by projection family and by the number of rows in the launch (batch rows, MTP verify rows included)",
       "cli_aliases": [],
       "recipe_aliases": []
     },
@@ -1590,6 +1784,16 @@
       "doc": "The env var name, named once so the parser and its tests cannot drift."
     },
     {
+      "env": "METRALE_CANONICAL_TIERS",
+      "path": "kernels.canonical_tiers",
+      "type": "switch",
+      "default": "off",
+      "flag": "--no-canonical-tiers",
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/row_tiers.rs",
+      "doc": "`METRALE_CANONICAL_TIERS` (presence): every W8A16 projection takes the tensor-core tile family's summation order at every row count, and the NVFP4 LM head and FP8 MoE one order each, so a row's bits do not depend on how many rows share its launch. On by default for FP8 MoE checkpoints; the lever turns it on for any other; `--no-canonical-tiers` turns it off and wins. Wins over `METRALE_ROW_EXACT_TIERS`. Any value turns it on, `0` included."
+    },
+    {
       "env": "METRALE_CHAT_PHASE_TIMING",
       "path": "telemetry.chat_phase_timing",
       "type": "switch",
@@ -1836,8 +2040,18 @@
       "default": "unset",
       "flag": null,
       "class": "runtime",
-      "reader": "crates/gpu-runtime/src/cuda_backend/gpu_impl.rs",
+      "reader": "crates/gpu-runtime/src/cuda_backend/gpu_impl/d2h_trace.rs",
       "doc": "D2H call counter + one-shot caller identification (`METRALE_D2H_TRACE=<N>`: log a backtrace on the Nth call, and the running count on every 10000th)."
+    },
+    {
+      "env": "METRALE_DEBUG_ALLOC_DIGEST",
+      "path": "telemetry.debug_alloc_digest",
+      "type": "path",
+      "default": "unset",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-engine/src/factory/build/alloc_digest.rs",
+      "doc": "`METRALE_DEBUG_ALLOC_DIGEST=path`: after the build, one `site<TAB>bytes<TAB>sha256` line per live allocation, sorted: the load-parity instrument of a loader change."
     },
     {
       "env": "METRALE_DEBUG_NO_GRAPH",
@@ -3613,11 +3827,11 @@
       "env": "METRALE_GDN_PIPE",
       "path": "kernels.gdn_pipe",
       "type": "switch",
-      "default": "off",
+      "default": "on",
       "flag": null,
       "class": "runtime",
-      "reader": "crates/model-layers/src/layers/ops/ssm_gdn_a3.rs",
-      "doc": "The fused spine stages {W,K,U} single-buffered plus one decay row; it does NOT split the DV axis, so grid.y stays `batch_size`. smem is identical for both members — only the thread count differs,. `1` turns it on."
+      "reader": "crates/model-layers/src/layers/ops/ssm_gdn_tc_route.rs",
+      "doc": "The GDN prefill state spine is the double-buffered `_pipe` entry (the `_vfused` arithmetic with W, K and U copied a chunk ahead; bit-identical output) unless `METRALE_GDN_PIPE=0` (single-buffered `_vfused`) or `METRALE_GDN_VTILE=1`; `1` also keeps `_pipe`. `0` turns it off."
     },
     {
       "env": "METRALE_GDN_PREFILL_TC",
@@ -5394,7 +5608,7 @@
       "path": "speculative.mtp_dcut_ratio",
       "type": "float",
       "default": "unset",
-      "flag": null,
+      "flag": "--mtp-dcut-ratio",
       "class": "runtime",
       "reader": "crates/server/src/scheduler/mtp_dcut.rs",
       "doc": "`METRALE_MTP_DCUT_RATIO` picks it; values snap to the nearest bucket so the search space stays the paper's four points."
@@ -5418,16 +5632,6 @@
       "class": "runtime",
       "reader": "crates/model-layers/src/drafter_context.rs",
       "doc": "Research-only arm: prefill without carry."
-    },
-    {
-      "env": "METRALE_MTP_DRAFT_CONF",
-      "path": "speculative.mtp_draft_conf",
-      "type": "text",
-      "default": "unset",
-      "flag": null,
-      "class": "runtime",
-      "reader": "crates/model-layers/src/speculative/knobs.rs",
-      "doc": "Confidence floor for submitting drafts to verification (`METRALE_MTP_DRAFT_CONF`, default 0.0 = disabled)."
     },
     {
       "env": "METRALE_MTP_GATE_FORCE",
@@ -5484,20 +5688,10 @@
       "path": "speculative.mtp_k_ladder",
       "type": "text",
       "default": "unset",
-      "flag": null,
+      "flag": "--mtp-k-ladder",
       "class": "runtime",
       "reader": "crates/model-layers/src/speculative/ladder.rs",
       "doc": "`METRALE_MTP_STATIC_RUNG` (PRESENCE) pins the static value here; so does an explicit `METRALE_MTP_K_LADDER`."
-    },
-    {
-      "env": "METRALE_MTP_MAX_SEQS",
-      "path": "speculative.mtp_max_seqs",
-      "type": "text",
-      "default": "unset",
-      "flag": null,
-      "class": "runtime",
-      "reader": "crates/model-layers/src/speculative/ladder.rs",
-      "doc": "SSOT for the multi-sequence MTP cap (`METRALE_MTP_MAX_SEQS`; default 32 with the K-vs-batch ladder, 4 under `METRALE_NO_MTP_K_LADDER`)."
     },
     {
       "env": "METRALE_MTP_POOL_FULL_WIDTH",
@@ -5780,6 +5974,16 @@
       "doc": "`METRALE_NO_ATTN_DECODE_BATCH` is the pre-existing kill switch for the whole batched attention-decode family, and it OUTRANKS both the declaration and the positive variable: a switch that turns a..."
     },
     {
+      "env": "METRALE_NO_ATTN_FA128",
+      "path": "kernels.no_attn_fa128",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/ops/prefill_attn_fa128.rs",
+      "doc": "Kill switch for `attn_prefill_fa128_paged` / `attn_prefill_fa128`, the bit-identical 128-row twins of the BF16 prefill attention kernels: set to any value, prefill keeps `attn_prefill_paged_64` / `attn_prefill_64`. Any value turns it on, `0` included."
+    },
+    {
       "env": "METRALE_NO_ATTN_Q_INPLACE",
       "path": "kernels.no_attn_q_inplace",
       "type": "switch",
@@ -5930,6 +6134,16 @@
       "doc": "Down-projection MMQ arm (DEFAULT ON; kill-switch METRALE_NO_FFN_NVFP4_MMQ_DOWN=1): route down through the same MMQ arm (t_m128 runs the narrow-N down at only ~34 TFLOP/s in-model). Any value turns it on, `0` included."
     },
     {
+      "env": "METRALE_NO_FP8_GEMM_PIPE",
+      "path": "kernels.no_fp8_gemm_pipe",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/ops/gemm_quant.rs",
+      "doc": "Kill switch for `fp8_gemm_blockscaled_pipe_128x64`, the bit-identical pipelined twin of `fp8_gemm_t_blockscaled` in the W8A8 prefill projections: set to any value, every launch keeps `fp8_gemm_t_blockscaled`. Any value turns it on, `0` included."
+    },
+    {
       "env": "METRALE_NO_FP8_MOE_GROUPED_DECODE",
       "path": "kernels.no_fp8_moe_grouped_decode",
       "type": "switch",
@@ -5960,6 +6174,16 @@
       "doc": "The fused `[q | k | v]` GEMM in `ms_qkv_batchn` (one launch instead of three) is on unless `METRALE_NO_FUSED_QKV=1`, read once per process. `1` turns it on."
     },
     {
+      "env": "METRALE_NO_GDN_CARRY",
+      "path": "speculative.no_gdn_carry",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-engine/src/model/gdn_carry.rs",
+      "doc": "Kill switch for the carried-state GDN verify of the batched MTP step: the parent WY kernels write every h intermediate and the commit restores H by copy. Any value turns it on, `0` included."
+    },
+    {
       "env": "METRALE_NO_GDN_FLA",
       "path": "kernels.no_gdn_fla",
       "type": "switch",
@@ -5988,6 +6212,16 @@
       "class": "runtime",
       "reader": "crates/model-arch/src/weight_loader/qwen35_dense.rs",
       "doc": "Kill-switch METRALE_NO_GDN_FP8_PREFILL restores the pre-policy behavior for A/B. Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_GDN_FWD_O_MMA8",
+      "path": "kernels.no_gdn_fwd_o_mma8",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/ops/ssm_gdn_hopper_prefill.rs",
+      "doc": "Kill switch for `gated_delta_rule_chunk_fwd_o_mma8`, the bit-identical 8-warp twin of the GDN prefill output kernel `gated_delta_rule_chunk_fwd_o`: set to any value, the prefill keeps the original. Any value turns it on, `0` included."
     },
     {
       "env": "METRALE_NO_GDN_HALF_REG",
@@ -6126,7 +6360,7 @@
       "default": "off",
       "flag": null,
       "class": "runtime",
-      "reader": "crates/model-engine/src/model/impl_a1.rs",
+      "reader": "crates/model-engine/src/model/impl_a1/spec_buffers.rs",
       "doc": "lm_head tile-GEMM decode path: **ON by default**, disabled by `METRALE_NO_LMHEAD_TGEMM=1`. `1` turns it on."
     },
     {
@@ -6156,7 +6390,7 @@
       "default": "off",
       "flag": null,
       "class": "runtime",
-      "reader": "crates/model-engine/src/model/trait_impl/verify_e.rs",
+      "reader": "crates/model-engine/src/model/trait_impl/verify_e/mapped_argmax.rs",
       "doc": "Kill switch METRALE_NO_MAPPED_ARGMAX=1 restores scratch + on-stream copy. `1` turns it on."
     },
     {
@@ -6180,6 +6414,36 @@
       "doc": "The 64-row MMQ tile: on unless `METRALE_NO_MMQ_TILE64` is exactly `1`; `METRALE_NO_MMQ_SMALL_TILE=1` also turns it off. `1` turns it on."
     },
     {
+      "env": "METRALE_NO_MOE_E4M3_GROUPED",
+      "path": "kernels.no_moe_e4m3_grouped",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/moe/forward_prefill_fp8/e4m3.rs",
+      "doc": "Kill switch for the native e4m3 routed-expert grouped GEMM of the FP8 MoE prefill: set to any value, the prefill keeps `moe_w8a8_grouped_gemm_pm4`. Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_MOE_FP8_TC",
+      "path": "kernels.no_moe_fp8_tc",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/moe/fp8_grouped_tc.rs",
+      "doc": "Kill switch: `METRALE_NO_MOE_FP8_TC` (presence) makes the grouped FP8 MoE decode run the scalar expert kernels instead of the tensor-core ones (`moe_fp8_grouped_tc.cu`, the default: same W8A16 precision, 30-45% fewer GPU-rail joules per expert layer on GB10). Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_MOE_GATEUP_SILU",
+      "path": "kernels.no_moe_gateup_silu",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/moe/forward_prefill_fp8/e4m3.rs",
+      "doc": "Kill switch for `moe_w8a8_gateup_silu_e4m3_w1/_w2`, the fused gate/up GEMMs + SiLU + E4M3 quant of the FP8 MoE prefill (bit-identical to the unfused chain): set to any value, the prefill runs the two `_gu` GEMMs and `silu_mul_quant_fp8`. Any value turns it on, `0` included."
+    },
+    {
       "env": "METRALE_NO_MOE_GROUPED_DECODE",
       "path": "kernels.no_moe_grouped_decode",
       "type": "switch",
@@ -6188,6 +6452,36 @@
       "class": "runtime",
       "reader": "crates/model-layers/src/layers/moe_grouped_decode.rs",
       "doc": "Turns the grouped MoE decode arm off at every width, even when `METRALE_MOE_GROUPED_DECODE` forces it. Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_MOE_NVFP4_TC",
+      "path": "kernels.no_moe_nvfp4_tc",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/moe/forward_nvfp4_grouped_decode.rs",
+      "doc": "Kill switch: `METRALE_NO_MOE_NVFP4_TC` (presence) makes the grouped NVFP4 MoE decode run the CUDA-core expert kernels (`moe_nvfp4_grouped.cu`, up to 64 rows) instead of the tensor-core ones (`moe_nvfp4_grouped_tc.cu`, the default: the same W4A16 precision, 1..=256 rows). Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_MOE_ROUTER_RT",
+      "path": "kernels.no_moe_router_rt",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/moe/init.rs",
+      "doc": "Kill switch for `moe_router_gemm_rt`, the register-tiled twin of `dense_gemm_bf16_router` (same bits) used for MoE router gates of 1024 rows or more: set to any value, the router keeps `dense_gemm_bf16_router`. Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_MOE_UNPERMUTE_BLEND",
+      "path": "kernels.no_moe_unpermute_blend",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/moe/init.rs",
+      "doc": "Kill switch for `moe_unpermute_blend`, the one-launch unpermute + shared-expert blend of the FP8 MoE prefill (same output bits): set to any value, the prefill runs `moe_unpermute_reduce_indexed` and `moe_batched_blend`. Any value turns it on, `0` included."
     },
     {
       "env": "METRALE_NO_MTP_BATCH_BOOTSTRAP",
@@ -6590,6 +6884,26 @@
       "doc": "`METRALE_NO_W4A16_TC` is a PRESENCE kill switch (any non-empty value, `0` included, turns the tensor-core small-M NVFP4 GEMV off), so its default is the literal `unset`, the one value under which..."
     },
     {
+      "env": "METRALE_NO_W8A16_PIPE128",
+      "path": "kernels.no_w8a16_pipe128",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/ops/gemm_quant_w8a16.rs",
+      "doc": "Kill switch for `w8a16_gemm_pipe128`, the bit-identical 128x128 twin of `w8a16_gemm_pipelined` used from 256 rows: set to any value, every launch keeps `w8a16_gemm_pipelined`. Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_W8A16_TC_ROWS",
+      "path": "kernels.no_w8a16_tc_rows",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/ops/w8a16_tc_rows.rs",
+      "doc": "Kill switch: `METRALE_NO_W8A16_TC_ROWS` (presence) keeps the 32/64-row tile twins for the canonical 1..=64-row W8A16 projections instead of `w8a16_tc_rows` (the default: same precision, 30-50% fewer GPU-rail joules per launch on GB10). Any value turns it on, `0` included."
+    },
+    {
       "env": "METRALE_NO_W8A8_DECODE_PROJ",
       "path": "kernels.no_w8a8_decode_proj",
       "type": "switch",
@@ -6598,6 +6912,16 @@
       "class": "runtime",
       "reader": "crates/model-layers/src/layers/ops/dispatch_proj_decode.rs",
       "doc": "Kill switch: `METRALE_NO_W8A8_DECODE_PROJ` set to any value, empty and `0` included, turns this route off. Any value turns it on, `0` included."
+    },
+    {
+      "env": "METRALE_NO_WARP_BLOCKSCALE_MMA",
+      "path": "build.no_warp_blockscale_mma",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "build",
+      "reader": "crates/circuit/src/hardware/test_fixture.rs",
+      "doc": "An nvcc define, not an environment variable: a class whose `[build] extra_nvcc_flags` carry `-DMETRALE_NO_WARP_BLOCKSCALE_MMA` compiles out the warp-level FP4 block-scale MMA paths its hardware lacks (sm_90a and sm_100a have no `mma.sync ... block_scale`). The circuit planner reads it as a `[[guard]]` in kernels/DEVICES.toml. Present in the flags turns it on."
     },
     {
       "env": "METRALE_NUMERIC_RNE_CHILD",
@@ -7208,6 +7532,16 @@
       "class": "runtime",
       "reader": "crates/model-layers/src/layers/ops/norm.rs",
       "doc": "Disable with `METRALE_RMS_NORM_WARP_ROW=0`. `0` turns it off."
+    },
+    {
+      "env": "METRALE_ROW_EXACT_TIERS",
+      "path": "kernels.row_exact_tiers",
+      "type": "switch",
+      "default": "off",
+      "flag": null,
+      "class": "runtime",
+      "reader": "crates/model-layers/src/layers/row_tiers.rs",
+      "doc": "`METRALE_ROW_EXACT_TIERS` (presence): every W8A16 projection keeps the scalar GEMV's summation order at every row count, and the NVFP4 LM head and FP8 MoE one order each, so a row's bits do not depend on how many rows share its launch. Any value turns it on, `0` included."
     },
     {
       "env": "METRALE_SEQ_MEMTRACE",
