@@ -60,6 +60,14 @@ metadata:
   kv_dtype: fp8
 
 defaults:
+  # The --activation-quantization routing this recipe was measured under: each projection
+  # picks its activation precision by row count, as before the flag existed. The
+  # row-invariant modes (declared, bf16, fp8, nvfp4) are opt-in until evaluated.
+  activation_quantization: adaptive
+  # The --weight-quantization tier this recipe was measured under: FP8-declared layers
+  # requantized to NVFP4, the engine as it ran before the tiers. `declared` (the
+  # engine default) is not measured on this recipe.
+  weight_quantization: nvfp4
   port: 8888
   host: 0.0.0.0
   # 256K: fp8 KV at 262144 needs only ~18.7 GB of pool (half the 37.4 GB
@@ -69,7 +77,7 @@ defaults:
   # margin, rather than a separate live run.
   max_model_len: 262144
   kv_cache_dtype: fp8
-  gpu_memory_utilization: 0.88
+  gpu_memory_utilization: 0.85
   scheduler: slai
   speculative: true
   # Measured optimum for this checkpoint (see description): K=1 = 116.5
